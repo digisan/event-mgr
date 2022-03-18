@@ -14,11 +14,11 @@ func TestAddEvent(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	eb := NewEventBlock()
-	eb.SetDbAppendFunc(edb.AppendEventBlock)
-	eb.SetSpan("MINUTE")
+	es := NewEventSpan()
+	es.SetDbAppendFunc(edb.AppendEvtToSpan)
+	es.SetSpan("MINUTE")
 
-	// fmt.Println(eb.CurrentIDS())
+	// fmt.Println(es.CurrentIDS())
 
 	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
@@ -26,12 +26,12 @@ func TestAddEvent(t *testing.T) {
 		for {
 			select {
 			case <-done:
-				lk.FailOnErr("%v", eb.Flush())
+				lk.FailOnErr("%v", es.Flush())
 				return
 			case t := <-ticker.C:
 				id := uuid.NewString()
 				fmt.Println("Tick at", t, id)
-				lk.FailOnErr("%v", eb.AddEvent(id, "./README.md"))
+				lk.FailOnErr("%v", es.AddEvent(id, nil))
 			}
 		}
 	}()
