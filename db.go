@@ -12,10 +12,9 @@ var once sync.Once
 
 type EDB struct {
 	sync.Mutex
-	dbSpanIDs *badger.DB
-	dbIDDesc  *badger.DB
-	dbIDCmnt  *badger.DB
-	dbIDAuth  *badger.DB
+	dbSpanIDs  *badger.DB
+	dbIDEvt    *badger.DB
+	dbIDSubIDs *badger.DB
 }
 
 var eDB *EDB // global, for keeping single instance
@@ -34,10 +33,9 @@ func GetDB(dir string) *EDB {
 	if eDB == nil {
 		once.Do(func() {
 			eDB = &EDB{
-				dbSpanIDs: open(filepath.Join(dir, "span-id")),
-				dbIDDesc:  open(filepath.Join(dir, "id-desc")),
-				dbIDCmnt:  open(filepath.Join(dir, "id-cmnt")),
-				dbIDAuth:  open(filepath.Join(dir, "id-auth")),
+				dbSpanIDs:  open(filepath.Join(dir, "span-ids")),
+				dbIDEvt:    open(filepath.Join(dir, "id-event")),
+				dbIDSubIDs: open(filepath.Join(dir, "id-subs")),
 			}
 		})
 	}
@@ -53,19 +51,14 @@ func (db *EDB) Close() {
 		db.dbSpanIDs = nil
 	}
 
-	if db.dbIDDesc != nil {
-		lk.FailOnErr("%v", db.dbIDDesc.Close())
-		db.dbIDDesc = nil
+	if db.dbIDEvt != nil {
+		lk.FailOnErr("%v", db.dbIDEvt.Close())
+		db.dbIDEvt = nil
 	}
 
-	if db.dbIDCmnt != nil {
-		lk.FailOnErr("%v", db.dbIDCmnt.Close())
-		db.dbIDCmnt = nil
-	}
-
-	if db.dbIDAuth != nil {
-		lk.FailOnErr("%v", db.dbIDAuth.Close())
-		db.dbIDAuth = nil
+	if db.dbIDSubIDs != nil {
+		lk.FailOnErr("%v", db.dbIDSubIDs.Close())
+		db.dbIDSubIDs = nil
 	}
 }
 
@@ -109,30 +102,49 @@ func (db *EDB) Close() {
 // 	})
 // }
 
-func (db *EDB) AppendEvtToSpan(es *EventSpan, lock bool) error {
+func (db *EDB) SaveEvt(evt *Event, lock bool) error {
 	if lock {
 		db.Lock()
 		defer db.Unlock()
 	}
+	return db.dbIDEvt.Update(func(txn *badger.Txn) error {
+		return txn.Set(evt.Marshal())
+	})
+}
 
-	// ids, spans := es.MarshalIDsSpan()
-	// for i, id := range ids {
-	// 	if err := db.dbIDDesc.Update(func(txn *badger.Txn) error {
-	// 		if err := txn.Set(id, spans[i]); err != nil {
-	// 			return err
-	// 		}
-	// 		return nil
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
+func (db *EDB) GetEvt(id string) (evt *Event, err error) {
+	db.Lock()
+	defer db.Unlock()
 
+	evt = &Event{}
+
+	err = db.dbIDEvt.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		if it.Seek([]byte(id)); it.Valid() {
+			item := it.Item()
+			item.Value(func(val []byte) error {
+				return evt.Unmarshal(item.Key(), val)
+			})
+		}
+		return nil
+	})
+	return
+}
+
+func (db *EDB) SaveEvtSpan(es *EventSpan, lock bool) error {
+	if lock {
+		db.Lock()
+		defer db.Unlock()
+	}
 	return db.dbSpanIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(es.Marshal())
 	})
 }
 
-func (db *EDB) ListEventBlock() (es *EventSpan, err error) {
+func (db *EDB) ListEvtSpan() (es *EventSpan, err error) {
 	db.Lock()
 	defer db.Unlock()
 
@@ -147,13 +159,10 @@ func (db *EDB) ListEventBlock() (es *EventSpan, err error) {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			item.Value(func(v []byte) error {
-				es.Unmarshal(item.Key(), v)
-				return nil
+				return es.Unmarshal(item.Key(), v)
 			})
 		}
 		return nil
 	})
 	return
 }
-
-///////////////////////////////////////////////////////////////

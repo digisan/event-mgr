@@ -1,8 +1,6 @@
 package eventmgr
 
 const (
-	SEP    = "^"
-	SEP_VG = "^^"
-
+	SEP          = "^"
 	dfltSpanType = "TEN_MINUTE"
 )

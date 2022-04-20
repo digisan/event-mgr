@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var mSpanType = map[string]int64{
@@ -22,7 +24,7 @@ var mSpanType = map[string]int64{
 
 // key: span; value: IDs
 type EventSpan struct {
-	mtx        sync.Mutex
+	mtx        *sync.Mutex
 	spanType   string
 	mSpanIDs   map[string][]string
 	prevSpan   string
@@ -31,7 +33,7 @@ type EventSpan struct {
 
 func NewEventSpan() *EventSpan {
 	return &EventSpan{
-		mtx:        sync.Mutex{},
+		mtx:        &sync.Mutex{},
 		spanType:   dfltSpanType,
 		mSpanIDs:   make(map[string][]string),
 		prevSpan:   "",
@@ -74,41 +76,51 @@ func (es *EventSpan) SetDbAppendFunc(dbUpdate func(*EventSpan, bool) error) {
 	es.fnDbAppend = dbUpdate
 }
 
-// (refID -- resPath)
-func (es *EventSpan) AddEvent(refID string, desc *EventDesc) error {
+func (es *EventSpan) AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
 
 	dbKey := es.GetSpan()
 	defer func() { es.prevSpan = dbKey }()
 
+	id := uuid.NewString()
+
+	///////////////////////////////////////////////
+
+	if evt.fnDbAppend == nil {
+		return fmt.Errorf("Event [SetDbAppendFunc] must be done before AddEvent")
+	}
+	evt.id = id
+	if err := evt.fnDbAppend(evt, false); err != nil {
+		return err
+	}
+	fmt.Println(evt)
+
+	///////////////////////////////////////////////
+
 	if es.prevSpan != "" && dbKey != es.prevSpan {
-		if es.fnDbAppend != nil {
-			if err := es.fnDbAppend(es, false); err == nil { // store mSpanRefIDs at 'prevSpan'
-				delete(es.mSpanIDs, es.prevSpan)
-			} else {
-				return err
-			}
-		} else {
-			return fmt.Errorf("[SetDbAppendFunc] must be done before AddEvent")
+		if es.fnDbAppend == nil {
+			return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
 		}
+		if err := es.fnDbAppend(es, false); err != nil { // store mSpanRefIDs at 'prevSpan'
+			return err
+		}
+		delete(es.mSpanIDs, es.prevSpan)
 	}
 
-	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], refID)
+	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], id)
 	return nil
 }
 
 func (es *EventSpan) Flush() error {
-	if es.fnDbAppend != nil {
-		es.prevSpan = es.GetSpan()
-		if err := es.fnDbAppend(es, true); err == nil { // store mSpanRefIDs at 'prevSpan'
-			delete(es.mSpanIDs, es.prevSpan)
-		} else {
-			return err
-		}
-	} else {
-		return fmt.Errorf("[SetDbAppendFunc] must be done before AddEvent")
+	if es.fnDbAppend == nil {
+		return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
 	}
+	es.prevSpan = es.GetSpan()
+	if err := es.fnDbAppend(es, true); err != nil { // store mSpanRefIDs at 'prevSpan'
+		return err
+	}
+	delete(es.mSpanIDs, es.prevSpan)
 	return nil
 }
 
@@ -118,11 +130,12 @@ func (es *EventSpan) Marshal() (forKey, forValue []byte) {
 	return
 }
 
-func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) {
+func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
 	if es.mSpanIDs == nil {
 		es.mSpanIDs = make(map[string][]string)
 	}
 	es.mSpanIDs[string(dbKey)] = strings.Split(string(dbVal), SEP)
+	return nil
 }
 
 func (es *EventSpan) CurrentIDS() []string {
