@@ -14,10 +14,11 @@ func TestAddEvent(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
+	//
 	// Init *** EventSpan ***
 	//
 	es := NewEventSpan()
-	es.SetDbAppendFunc(edb.SaveEvtSpan)
+	es.DbAppendFunc(edb.SaveEvtSpan)
 	es.SetSpan("MINUTE")
 
 	// fmt.Println(es.CurrentIDS())
@@ -32,10 +33,11 @@ func TestAddEvent(t *testing.T) {
 
 				/////////////////////////////////
 
+				//
 				// Get *** Event ***
 				//
 				evt := NewEvent("uname", "eType", "metajson")
-				evt.SetDbAppendFunc(edb.SaveEvt)
+				evt.DbStoreFunc(edb.SaveEvt)
 
 				/////////////////////////////////
 
@@ -64,7 +66,6 @@ func TestListEvent(t *testing.T) {
 	}
 
 	fmt.Println(eb)
-
 }
 
 func TestGetEvt(t *testing.T) {
@@ -72,23 +73,23 @@ func TestGetEvt(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	evt, err := edb.GetEvt("499baeb5-ebc7-40ed-9e1f-79e538ee776e")
+	evt, err := edb.GetEvt("e3ba2775-e56a-47e6-ac2d-3dc80ba73899")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("---------------", *evt)
+	fmt.Println("---------------", evt)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestMarshal(t *testing.T) {
 	evt := &Event{
-		id:       "12345",
-		owner:    "cdutwhu",
-		evtType:  "post",
-		metaJSON: "json doc for event description",
-		publish:  true,
+		ID:       "12345",
+		Owner:    "cdutwhu",
+		EvtType:  "post",
+		MetaJSON: "json doc for event description",
+		Publish:  false,
 	}
 
 	fmt.Println(evt)
@@ -100,6 +101,7 @@ func TestMarshal(t *testing.T) {
 
 	fmt.Println("equal", evt == evt1)
 	fmt.Println("deep equal", reflect.DeepEqual(evt, evt1))
+	fmt.Println()
 
 	fmt.Println(evt1)
 }

@@ -72,7 +72,7 @@ func (es *EventSpan) GetSpan() string {
 	return fmt.Sprintf("%d-%d", start, sm)
 }
 
-func (es *EventSpan) SetDbAppendFunc(dbUpdate func(*EventSpan, bool) error) {
+func (es *EventSpan) DbAppendFunc(dbUpdate func(*EventSpan, bool) error) {
 	es.fnDbAppend = dbUpdate
 }
 
@@ -87,11 +87,11 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 
 	///////////////////////////////////////////////
 
-	if evt.fnDbAppend == nil {
+	if evt.fnDbStore == nil {
 		return fmt.Errorf("Event [SetDbAppendFunc] must be done before AddEvent")
 	}
-	evt.id = id
-	if err := evt.fnDbAppend(evt, false); err != nil {
+	evt.ID = id
+	if err := evt.fnDbStore(evt, false); err != nil {
 		return err
 	}
 	fmt.Println(evt)
@@ -141,3 +141,5 @@ func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
 func (es *EventSpan) CurrentIDS() []string {
 	return es.mSpanIDs[es.GetSpan()]
 }
+
+// func (es *EventSpan)

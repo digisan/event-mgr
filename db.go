@@ -118,7 +118,7 @@ func (db *EDB) GetEvt(id string) (evt *Event, err error) {
 
 	evt = &Event{}
 
-	err = db.dbIDEvt.View(func(txn *badger.Txn) error {
+	return evt, db.dbIDEvt.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		it := txn.NewIterator(opts)
 		defer it.Close()
@@ -131,7 +131,6 @@ func (db *EDB) GetEvt(id string) (evt *Event, err error) {
 		}
 		return nil
 	})
-	return
 }
 
 func (db *EDB) SaveEvtSpan(es *EventSpan, lock bool) error {
@@ -150,7 +149,7 @@ func (db *EDB) ListEvtSpan() (es *EventSpan, err error) {
 
 	es = &EventSpan{}
 
-	err = db.dbSpanIDs.View(func(txn *badger.Txn) error {
+	return es, db.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -164,5 +163,24 @@ func (db *EDB) ListEvtSpan() (es *EventSpan, err error) {
 		}
 		return nil
 	})
-	return
+}
+
+func (db *EDB) GetEvtSpan(ts string) (es *EventSpan, err error) {
+	db.Lock()
+	defer db.Unlock()
+
+	es = &EventSpan{}
+
+	return es, db.dbSpanIDs.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		////////////////////////////////////////////
+		panic("TODO:")
+		////////////////////////////////////////////
+
+		return nil
+	})
 }
