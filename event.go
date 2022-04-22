@@ -7,30 +7,38 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
+	"github.com/google/uuid"
 )
 
 // key: ID;
 // value: others
 type Event struct {
 	ID        string
+	Tm        time.Time
 	Owner     string
 	EvtType   string
 	MetaJSON  string
-	Publish   bool
+	Public    bool
 	fnDbStore func(*Event, bool) error
 }
 
-func NewEvent(owner, evtType, meta string) *Event {
+// if [id] is empty, a new one will be assigned to event.
+func NewEvent(id, owner, evtType, meta string, onDbStore func(*Event, bool) error) *Event {
+	if len(id) == 0 {
+		id = uuid.NewString()
+	}
 	return &Event{
-		ID:        "",
+		ID:        id,
+		Tm:        time.Now().Truncate(time.Second),
 		Owner:     owner,
 		EvtType:   evtType,
 		MetaJSON:  meta,
-		Publish:   false,
-		fnDbStore: nil,
+		Public:    false,
+		fnDbStore: onDbStore,
 	}
 }
 
@@ -64,7 +72,8 @@ func (evt *Event) KeyFieldAddr(mok int) *string {
 
 // db value order
 const (
-	MOV_Owner int = iota
+	MOV_Tm int = iota
+	MOV_Owner
 	MOV_EvtType
 	MOV_MetaJSON
 	MOV_Pub
@@ -73,10 +82,11 @@ const (
 
 func (evt *Event) ValFieldAddr(mov int) any {
 	mFldAddr := map[int]any{
+		MOV_Tm:       &evt.Tm,
 		MOV_Owner:    &evt.Owner,
 		MOV_EvtType:  &evt.EvtType,
 		MOV_MetaJSON: &evt.MetaJSON,
-		MOV_Pub:      &evt.Publish,
+		MOV_Pub:      &evt.Public,
 	}
 	return mFldAddr[mov]
 }
@@ -89,10 +99,16 @@ func (evt *Event) Marshal() (forKey []byte, forValue []byte) {
 	forKey = []byte(evt.ID)
 	for i := 0; i < MOV_N; i++ {
 		switch v := evt.ValFieldAddr(i).(type) {
+
 		case *string:
 			forValue = append(forValue, []byte(*v)...)
+
 		case *bool:
 			forValue = append(forValue, []byte(fmt.Sprint(*v))...)
+
+		case *time.Time:
+			forValue = append(forValue, []byte(v.Format(time.RFC3339))...)
+
 		}
 		if i < MOV_N-1 {
 			forValue = append(forValue, []byte(SEP)...)
@@ -105,21 +121,40 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
 	evt.ID = string(dbKey)
 	segs := bytes.SplitN(dbVal, []byte(SEP), MOV_N)
 	for i := 0; i < MOV_N; i++ {
+		sval := string(segs[i])
 		switch i {
+
+		case MOV_Tm:
+			t, err := time.Parse(time.RFC3339, sval)
+			if err != nil {
+				lk.WarnOnErr("%v", err)
+				return err
+			}
+			*evt.ValFieldAddr(i).(*time.Time) = t
+
 		case MOV_Pub:
-			pub, err := strconv.ParseBool(string(segs[i]))
+			pub, err := strconv.ParseBool(sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)
 				return err
 			}
 			*evt.ValFieldAddr(i).(*bool) = pub
+
 		default:
-			*evt.ValFieldAddr(i).(*string) = string(segs[i])
+			*evt.ValFieldAddr(i).(*string) = sval
 		}
 	}
 	return nil
 }
 
-func (evt *Event) DbStoreFunc(dbStore func(*Event, bool) error) {
+func (evt *Event) Publish(pub bool) error {
+	evt.Public = pub
+	if evt.fnDbStore == nil {
+		return errors.New("fnDbStore is nil, Do OnDbStore before Publish")
+	}
+	return evt.fnDbStore(evt, true)
+}
+
+func (evt *Event) OnDbStore(dbStore func(*Event, bool) error) {
 	evt.fnDbStore = dbStore
 }

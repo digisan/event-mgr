@@ -36,8 +36,7 @@ func TestAddEvent(t *testing.T) {
 				//
 				// Get *** Event ***
 				//
-				evt := NewEvent("uname", "eType", "metajson")
-				evt.DbStoreFunc(edb.SaveEvt)
+				evt := NewEvent("", "uname", "eType", "metajson", edb.SaveEvt)
 
 				/////////////////////////////////
 
@@ -73,24 +72,30 @@ func TestGetEvt(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	evt, err := edb.GetEvt("e3ba2775-e56a-47e6-ac2d-3dc80ba73899")
+	id := "048a3587-c842-42da-a5cf-c9d097710963"
+
+	evt, err := edb.GetEvt(id)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("---------------\n%v---------------\n", evt)
 
-	fmt.Println("---------------", evt)
+	evt.OnDbStore(edb.SaveEvt)
+	if err := evt.Publish(true); err != nil {
+		panic(err)
+	}
+
+	evt, err = edb.GetEvt(id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("---------------\n%v---------------\n", evt)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestMarshal(t *testing.T) {
-	evt := &Event{
-		ID:       "12345",
-		Owner:    "cdutwhu",
-		EvtType:  "post",
-		MetaJSON: "json doc for event description",
-		Publish:  false,
-	}
+	evt := NewEvent("", "cdutwhu", "post", "json doc for event description", nil)
 
 	fmt.Println(evt)
 

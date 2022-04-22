@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	lk "github.com/digisan/logkit"
 )
 
 var mSpanType = map[string]int64{
@@ -83,18 +83,15 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	dbKey := es.GetSpan()
 	defer func() { es.prevSpan = dbKey }()
 
-	id := uuid.NewString()
-
 	///////////////////////////////////////////////
 
 	if evt.fnDbStore == nil {
-		return fmt.Errorf("Event [SetDbAppendFunc] must be done before AddEvent")
+		return fmt.Errorf("Event [OnDbStore] must be done before AddEvent")
 	}
-	evt.ID = id
 	if err := evt.fnDbStore(evt, false); err != nil {
 		return err
 	}
-	fmt.Println(evt)
+	lk.Log("%v", evt)
 
 	///////////////////////////////////////////////
 
@@ -108,7 +105,7 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 		delete(es.mSpanIDs, es.prevSpan)
 	}
 
-	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], id)
+	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
 	return nil
 }
 
