@@ -16,11 +16,9 @@ func main() {
 	//
 	// Init *** EventSpan ***
 	//
-	es := em.NewEventSpan()
-	es.DbAppendFunc(edb.SaveEvtSpan)
-	es.SetSpan("MINUTE")
+	es := em.NewEventSpan("MINUTE", edb.SaveEvtSpan)
 
-	// fmt.Println(es.CurrentIDS())
+	// fmt.Println(es.CurrIDs())
 
 	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
@@ -51,5 +49,4 @@ func main() {
 	ticker.Stop()
 	done <- true
 	fmt.Println("Ticker stopped")
-
 }

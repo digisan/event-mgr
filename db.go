@@ -177,10 +177,13 @@ func (db *EDB) GetEvtSpan(ts string) (es *EventSpan, err error) {
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		////////////////////////////////////////////
-		panic("TODO:")
-		////////////////////////////////////////////
-
+		prefix := []byte(ts)
+		if it.Seek(prefix); it.ValidForPrefix(prefix) {
+			item := it.Item()
+			item.Value(func(v []byte) error {
+				return es.Unmarshal(item.Key(), v)
+			})
+		}
 		return nil
 	})
 }

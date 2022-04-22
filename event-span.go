@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
 
@@ -31,13 +32,16 @@ type EventSpan struct {
 	fnDbAppend func(*EventSpan, bool) error
 }
 
-func NewEventSpan() *EventSpan {
+func NewEventSpan(spanType string, dbUpdate func(*EventSpan, bool) error) *EventSpan {
+	if len(spanType) == 0 {
+		spanType = dfltSpanType
+	}
 	return &EventSpan{
 		mtx:        &sync.Mutex{},
-		spanType:   dfltSpanType,
+		spanType:   spanType,
 		mSpanIDs:   make(map[string][]string),
 		prevSpan:   "",
-		fnDbAppend: nil,
+		fnDbAppend: dbUpdate,
 	}
 }
 
@@ -72,7 +76,7 @@ func (es *EventSpan) GetSpan() string {
 	return fmt.Sprintf("%d-%d", start, sm)
 }
 
-func (es *EventSpan) DbAppendFunc(dbUpdate func(*EventSpan, bool) error) {
+func (es *EventSpan) OnDbAppend(dbUpdate func(*EventSpan, bool) error) {
 	es.fnDbAppend = dbUpdate
 }
 
@@ -135,8 +139,37 @@ func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
 	return nil
 }
 
-func (es *EventSpan) CurrentIDS() []string {
+func (es *EventSpan) CurrIDs() []string {
 	return es.mSpanIDs[es.GetSpan()]
 }
 
-// func (es *EventSpan)
+func FetchSpanIDs(dbPath, order string, past time.Duration) ([]string, [][]string, error) {
+
+	edb := GetDB(dbPath)
+	defer edb.Close()
+
+	///////////////////////////////////////////
+
+	panic("TODO: use past to fetch specific es")
+
+	///////////////////////////////////////////
+
+	es, err := edb.ListEvtSpan()
+	if err != nil {
+		lk.WarnOnErr("%v", err)
+		return nil, nil, err
+	}
+
+	ks, vs := Map2KVs(es.mSpanIDs, func(i, j string) bool {
+		switch order {
+		case "ASC":
+			return i < j
+		case "DESC":
+			return i > j
+		default:
+			return i > j
+		}
+	}, nil)
+
+	return ks, vs, nil
+}

@@ -17,11 +17,9 @@ func TestAddEvent(t *testing.T) {
 	//
 	// Init *** EventSpan ***
 	//
-	es := NewEventSpan()
-	es.DbAppendFunc(edb.SaveEvtSpan)
-	es.SetSpan("MINUTE")
+	es := NewEventSpan("MINUTE", edb.SaveEvtSpan)
 
-	// fmt.Println(es.CurrentIDS())
+	// fmt.Println(es.CurrIDs())
 
 	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
@@ -40,6 +38,17 @@ func TestAddEvent(t *testing.T) {
 
 				/////////////////////////////////
 
+				//
+				// TEST *** reading when writing ***
+				//
+				// es1, err := edb.GetEvtSpan("27510424")
+				// if err != nil {
+				// 	panic(err)
+				// }
+				// fmt.Println(es1)
+
+				/////////////////////////////////
+
 				lk.FailOnErr("%v", es.AddEvent(evt))
 			case <-done:
 				lk.FailOnErr("%v", es.Flush())
@@ -54,17 +63,45 @@ func TestAddEvent(t *testing.T) {
 	fmt.Println("Ticker stopped")
 }
 
-func TestListEvent(t *testing.T) {
+func TestListEvtSpan(t *testing.T) {
 
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	eb, err := edb.ListEvtSpan()
+	es, err := edb.ListEvtSpan()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(eb)
+	fmt.Println(es)
+}
+
+func TestGetEvtSpan(t *testing.T) {
+
+	edb := GetDB("./data")
+	defer edb.Close()
+
+	es, err := edb.GetEvtSpan("27510424")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(es)
+}
+
+func TestFetchSpanIDs(t *testing.T) {
+
+	spans, idGrpList, err := FetchSpanIDs("./data", "DESC", 0)
+	if err != nil {
+		panic(err)
+	}
+
+	for i, span := range spans {
+		fmt.Println(span)
+		for j, id := range idGrpList[i] {
+			fmt.Println(j, id)
+		}
+	}
 }
 
 func TestGetEvt(t *testing.T) {
@@ -72,7 +109,7 @@ func TestGetEvt(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	id := "048a3587-c842-42da-a5cf-c9d097710963"
+	id := "ac29d6e1-c342-43c4-99df-99b1e42b462b"
 
 	evt, err := edb.GetEvt(id)
 	if err != nil {
