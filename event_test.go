@@ -81,7 +81,7 @@ func TestGetEvtSpan(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	es, err := edb.GetEvtSpan("27510424")
+	es, err := edb.GetEvtSpan("27514229")
 	if err != nil {
 		panic(err)
 	}
@@ -91,16 +91,13 @@ func TestGetEvtSpan(t *testing.T) {
 
 func TestFetchSpanIDs(t *testing.T) {
 
-	spans, idGrpList, err := FetchSpanIDs("./data", "DESC", 0)
+	SetSpanType("MINUTE")
+	ids, err := FetchEvtIDs("./data", "DESC", "4m")
 	if err != nil {
 		panic(err)
 	}
-
-	for i, span := range spans {
-		fmt.Println(span)
-		for j, id := range idGrpList[i] {
-			fmt.Println(j, id)
-		}
+	for j, id := range ids {
+		fmt.Println(j, id)
 	}
 }
 

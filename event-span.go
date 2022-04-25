@@ -7,7 +7,12 @@ import (
 	"time"
 
 	. "github.com/digisan/go-generics/v2"
+	"github.com/digisan/gotk/strs"
 	lk "github.com/digisan/logkit"
+)
+
+var (
+	curSpanType = "TEN_MINUTE"
 )
 
 var mSpanType = map[string]int64{
@@ -23,22 +28,59 @@ var mSpanType = map[string]int64{
 	"MINUTE":       1,
 }
 
+func SetSpanType(spanType string) error {
+	if _, ok := mSpanType[spanType]; !ok {
+		return fmt.Errorf("[%v] is an unsupported value", spanType)
+	}
+	curSpanType = spanType
+	return nil
+}
+
+// tm: such as "2h20m", "30m", "2s"
+func getSpan(tm string, past bool) string {
+	if len(tm) == 0 {
+		tm = "0s"
+	}
+	duration, err := time.ParseDuration(tm)
+	lk.FailOnErr("%v", err)
+
+	duration = IF(past, -duration, duration)
+
+	then := time.Now().Add(duration) // past is minus duration
+	tsMin := then.Unix() / 60
+
+	sm, ok := mSpanType[curSpanType]
+	lk.FailOnErrWhen(!ok, "%v", fmt.Errorf("error at '%s'", curSpanType))
+	start := tsMin / sm * sm
+	return fmt.Sprintf("%d-%d", start, sm)
+}
+
+func NowSpan() string {
+	return getSpan("", false)
+}
+
+func PastSpan(tm string) string {
+	return getSpan(tm, true)
+}
+
+func FutureSpan(tm string) string {
+	return getSpan(tm, false)
+}
+
 // key: span; value: IDs
 type EventSpan struct {
 	mtx        *sync.Mutex
-	spanType   string
 	mSpanIDs   map[string][]string
 	prevSpan   string
 	fnDbAppend func(*EventSpan, bool) error
 }
 
 func NewEventSpan(spanType string, dbUpdate func(*EventSpan, bool) error) *EventSpan {
-	if len(spanType) == 0 {
-		spanType = dfltSpanType
+	if len(spanType) != 0 {
+		SetSpanType(spanType)
 	}
 	return &EventSpan{
 		mtx:        &sync.Mutex{},
-		spanType:   spanType,
 		mSpanIDs:   make(map[string][]string),
 		prevSpan:   "",
 		fnDbAppend: dbUpdate,
@@ -56,26 +98,6 @@ func (es EventSpan) String() string {
 	return sb.String()
 }
 
-func (es *EventSpan) SetSpan(spanType string) error {
-	if _, ok := mSpanType[spanType]; !ok {
-		return fmt.Errorf("[%v] is an unsupported setting value", spanType)
-	}
-	es.spanType = spanType
-	return nil
-}
-
-func (es *EventSpan) GetSpan() string {
-	ts := time.Now().Unix()
-	tsMin := ts / 60
-	sm, ok := mSpanType[es.spanType]
-	if !ok {
-		es.spanType = dfltSpanType
-		sm = mSpanType[es.spanType]
-	}
-	start := tsMin / sm * sm
-	return fmt.Sprintf("%d-%d", start, sm)
-}
-
 func (es *EventSpan) OnDbAppend(dbUpdate func(*EventSpan, bool) error) {
 	es.fnDbAppend = dbUpdate
 }
@@ -84,7 +106,7 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
 
-	dbKey := es.GetSpan()
+	dbKey := NowSpan()
 	defer func() { es.prevSpan = dbKey }()
 
 	///////////////////////////////////////////////
@@ -117,7 +139,7 @@ func (es *EventSpan) Flush() error {
 	if es.fnDbAppend == nil {
 		return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
 	}
-	es.prevSpan = es.GetSpan()
+	es.prevSpan = NowSpan()
 	if err := es.fnDbAppend(es, true); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
@@ -140,36 +162,41 @@ func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
 }
 
 func (es *EventSpan) CurrIDs() []string {
-	return es.mSpanIDs[es.GetSpan()]
+	return es.mSpanIDs[NowSpan()]
 }
 
-func FetchSpanIDs(dbPath, order string, past time.Duration) ([]string, [][]string, error) {
+// order: "DESC", "ASC"
+// past: such as "2h20m", "30m", "2s"
+func FetchEvtIDs(dbPath, order, past string) (ids []string, err error) {
 
 	edb := GetDB(dbPath)
 	defer edb.Close()
 
-	///////////////////////////////////////////
+	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
+	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
 
-	panic("TODO: use past to fetch specific es")
-
-	///////////////////////////////////////////
-
-	es, err := edb.ListEvtSpan()
-	if err != nil {
-		lk.WarnOnErr("%v", err)
-		return nil, nil, err
+	tsGrp := []string{}
+	for i := nsNum; i > psNum; i-- {
+		tsGrp = append(tsGrp, fmt.Sprint(i))
 	}
 
-	ks, vs := Map2KVs(es.mSpanIDs, func(i, j string) bool {
-		switch order {
-		case "ASC":
-			return i < j
-		case "DESC":
-			return i > j
-		default:
-			return i > j
+	for _, ts := range tsGrp {
+		es, err := edb.GetEvtSpan(ts)
+		if err != nil {
+			lk.WarnOnErr("%v", err)
+			return nil, err
 		}
-	}, nil)
-
-	return ks, vs, nil
+		_, vs := Map2KVs(es.mSpanIDs, func(i, j string) bool {
+			switch order {
+			case "ASC":
+				return i < j
+			case "DESC":
+				return i > j
+			default:
+				return i > j
+			}
+		}, nil)
+		ids = append(ids, MergeArray(vs...)...)
+	}
+	return
 }
