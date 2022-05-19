@@ -1,5 +1,5 @@
 package eventmgr
 
 const (
-	SEP          = "^"	
+	SEP = "^"
 )

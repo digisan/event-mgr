@@ -21,7 +21,7 @@ func TestAddEvent(t *testing.T) {
 
 	// fmt.Println(es.CurrIDs())
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -57,7 +57,7 @@ func TestAddEvent(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Minute)
+	time.Sleep(2 * time.Minute)
 	ticker.Stop()
 	done <- true
 	fmt.Println("Ticker stopped")
@@ -81,7 +81,9 @@ func TestGetEvtSpan(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	es, err := edb.GetEvtSpan("27514229")
+	// fmt.Println(NowSpan())
+
+	es, err := edb.GetEvtSpan("27548779")
 	if err != nil {
 		panic(err)
 	}
@@ -106,7 +108,7 @@ func TestGetEvt(t *testing.T) {
 	edb := GetDB("./data")
 	defer edb.Close()
 
-	id := "ac29d6e1-c342-43c4-99df-99b1e42b462b"
+	id := "03dd1fc3-1abe-45c9-89a3-aa806f10c5d6"
 
 	evt, err := edb.GetEvt(id)
 	if err != nil {

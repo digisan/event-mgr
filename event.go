@@ -150,7 +150,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
 func (evt *Event) Publish(pub bool) error {
 	evt.Public = pub
 	if evt.fnDbStore == nil {
-		return errors.New("fnDbStore is nil, Do OnDbStore before Publish")
+		return errors.New("fnDbStore is nil, Do 'OnDbStore' before Publish")
 	}
 	return evt.fnDbStore(evt, true)
 }
