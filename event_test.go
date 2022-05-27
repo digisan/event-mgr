@@ -91,10 +91,28 @@ func TestGetEvtSpan(t *testing.T) {
 	fmt.Println(es)
 }
 
-func TestFetchSpanIDs(t *testing.T) {
+func TestFetchSpanIDsByTime(t *testing.T) {
+
+	edb := GetDB("./data")
+	defer edb.Close()
 
 	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDs("./data", "DESC", "4m")
+	ids, err := FetchEvtIDsByTime(edb, "4m", "DESC")
+	if err != nil {
+		panic(err)
+	}
+	for j, id := range ids {
+		fmt.Println(j, id)
+	}
+}
+
+func TestFetchSpanIDsByCnt(t *testing.T) {
+
+	edb := GetDB("./data")
+	defer edb.Close()
+
+	SetSpanType("MINUTE")
+	ids, err := FetchEvtIDsByCnt(edb, 20, "DESC")
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +135,7 @@ func TestGetEvt(t *testing.T) {
 	fmt.Printf("---------------\n%v---------------\n", evt)
 
 	evt.OnDbStore(edb.SaveEvt)
-	if err := evt.Publish(true); err != nil {
+	if err := evt.Publish(true); err != nil { // make this event public
 		panic(err)
 	}
 

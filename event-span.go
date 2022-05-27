@@ -165,12 +165,9 @@ func (es *EventSpan) CurrIDs() []string {
 	return es.mSpanIDs[NowSpan()]
 }
 
-// order: "DESC", "ASC"
 // past: such as "2h20m", "30m", "2s"
-func FetchEvtIDs(dbPath, order, past string) (ids []string, err error) {
-
-	edb := GetDB(dbPath)
-	defer edb.Close()
+// order: "DESC", "ASC"
+func FetchEvtIDsByTime(edb *EDB, past, order string) (ids []string, err error) {
 
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
 	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
@@ -197,6 +194,19 @@ func FetchEvtIDs(dbPath, order, past string) (ids []string, err error) {
 			}
 		}, nil)
 		ids = append(ids, MergeArray(vs...)...)
+	}
+	return
+}
+
+func FetchEvtIDsByCnt(edb *EDB, n int, order string) (ids []string, err error) {
+	for _, tm := range []string{"1m", "2m", "5m", "10m", "30m", "1h", "2h", "6h", "12h", "24h", "48h", "72h", "168h", "720h"} {
+		ids, err = FetchEvtIDsByTime(edb, tm, order)
+		if err != nil {
+			return nil, err
+		}
+		if len(ids) > n {
+			return ids[:n], nil
+		}
 	}
 	return
 }
