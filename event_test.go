@@ -83,7 +83,7 @@ func TestGetEvtSpan(t *testing.T) {
 
 	// fmt.Println(NowSpan())
 
-	es, err := edb.GetEvtSpan("27548779")
+	es, err := edb.GetEvtSpan("27561528")
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +97,7 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 	defer edb.Close()
 
 	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByTime(edb, "4m", "DESC")
+	ids, err := FetchEvtIDsByTm(edb, "4m", "DESC")
 	if err != nil {
 		panic(err)
 	}
@@ -112,7 +112,7 @@ func TestFetchSpanIDsByCnt(t *testing.T) {
 	defer edb.Close()
 
 	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByCnt(edb, 20, "DESC")
+	ids, err := FetchEvtIDsByCnt(edb, 20, "", "") // 'a week' period, 'DESC' sort
 	if err != nil {
 		panic(err)
 	}

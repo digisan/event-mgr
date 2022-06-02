@@ -167,7 +167,7 @@ func (es *EventSpan) CurrIDs() []string {
 
 // past: such as "2h20m", "30m", "2s"
 // order: "DESC", "ASC"
-func FetchEvtIDsByTime(edb *EDB, past, order string) (ids []string, err error) {
+func FetchEvtIDsByTm(edb *EDB, past, order string) (ids []string, err error) {
 
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
 	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
@@ -198,15 +198,21 @@ func FetchEvtIDsByTime(edb *EDB, past, order string) (ids []string, err error) {
 	return
 }
 
-func FetchEvtIDsByCnt(edb *EDB, n int, order string) (ids []string, err error) {
-	for _, tm := range []string{"1m", "2m", "5m", "10m", "30m", "1h", "2h", "6h", "12h", "24h", "48h", "72h", "168h", "720h"} {
-		ids, err = FetchEvtIDsByTime(edb, tm, order)
-		if err != nil {
-			return nil, err
-		}
-		if len(ids) > n {
-			return ids[:n], nil
-		}
+// default IDs period is one week.
+// if one week's events is less than [n], return all of week's events
+func FetchEvtIDsByCnt(edb *EDB, n int, period, order string) (ids []string, err error) {
+	if len(period) == 0 {
+		period = "168h"
 	}
-	return
+	if len(order) == 0 {
+		order = "DESC"
+	}
+	ids, err = FetchEvtIDsByTm(edb, period, order)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) > n {
+		return ids[:n], nil
+	}
+	return ids, nil
 }
