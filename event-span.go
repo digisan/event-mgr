@@ -13,6 +13,7 @@ import (
 
 var (
 	curSpanType = "TEN_MINUTE"
+	cacheIDs    = []string{}
 )
 
 var mSpanType = map[string]int64{
@@ -119,6 +120,9 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	}
 	lk.Log("%v", evt)
 
+	// temp cache ids filling...
+	cacheIDs = append(cacheIDs, evt.ID)
+
 	///////////////////////////////////////////////
 
 	if es.prevSpan != "" && dbKey != es.prevSpan {
@@ -129,6 +133,9 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 			return err
 		}
 		delete(es.mSpanIDs, es.prevSpan)
+
+		// temp cache ids clearing...
+		cacheIDs = cacheIDs[:0]
 	}
 
 	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
@@ -168,6 +175,9 @@ func (es *EventSpan) CurrIDs() []string {
 // past: such as "2h20m", "30m", "2s"
 // order: "DESC", "ASC"
 func FetchEvtIDsByTm(edb *EDB, past, order string) (ids []string, err error) {
+
+	ids = append(ids, cacheIDs...)
+	ids = Reverse(ids)
 
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
 	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
