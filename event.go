@@ -93,10 +93,11 @@ func (evt *Event) ValFieldAddr(mov int) any {
 
 ////////////////////////////////////////////////////
 
-func (evt *Event) Marshal() (forKey []byte, forValue []byte) {
+func (evt *Event) Marshal() (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(evt.ID) == 0, "%v", errors.New("empty event id"))
 
 	forKey = []byte(evt.ID)
+	
 	for i := 0; i < MOV_N; i++ {
 		switch v := evt.ValFieldAddr(i).(type) {
 

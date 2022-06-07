@@ -15,6 +15,7 @@ type EDB struct {
 	dbSpanIDs  *badger.DB
 	dbIDEvt    *badger.DB
 	dbIDSubIDs *badger.DB
+	dbOwnerIDs *badger.DB
 }
 
 var eDB *EDB // global, for keeping single instance
@@ -36,6 +37,7 @@ func GetDB(dir string) *EDB {
 				dbSpanIDs:  open(filepath.Join(dir, "span-ids")),
 				dbIDEvt:    open(filepath.Join(dir, "id-event")),
 				dbIDSubIDs: open(filepath.Join(dir, "id-subs")),
+				dbOwnerIDs: open(filepath.Join(dir, "owner-ids")),
 			}
 		})
 	}
@@ -59,6 +61,11 @@ func (db *EDB) Close() {
 	if db.dbIDSubIDs != nil {
 		lk.FailOnErr("%v", db.dbIDSubIDs.Close())
 		db.dbIDSubIDs = nil
+	}
+
+	if db.dbOwnerIDs != nil {
+		lk.FailOnErr("%v", db.dbOwnerIDs.Close())
+		db.dbOwnerIDs = nil
 	}
 }
 
