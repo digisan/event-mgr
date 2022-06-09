@@ -158,13 +158,13 @@ func Flush(lock bool) error {
 
 	defer misc.TrackTime(time.Now())
 
-	// if lock {
-	// 	fmt.Println("final flushing...")
-	// }
-	// ks, vs := Map2KVs(es.mSpanIDs, nil, nil)
-	// for i, span := range ks {
-	// 	lk.Log("flushing ------>  %s - %d", span, len(vs[i]))
-	// }
+	if lock {
+		fmt.Println("final flushing...")
+	}
+	ks, vs := Map2KVs(es.mSpanIDs, nil, nil)
+	for i, span := range ks {
+		lk.Log("flushing ------>  %s - %d", span, len(vs[i]))
+	}
 
 	// store a batch of span event IDs
 	if err := SaveEvtSpan(); err != nil { // store mSpanRefIDs at 'prevSpan'
@@ -189,22 +189,21 @@ func Marshal() (forKey, forValue []byte) {
 	return
 }
 
-func Unmarshal(dbKey, dbVal []byte) error {
-	if es.mSpanIDs == nil {
-		es.mSpanIDs = make(map[string][]string)
-	}
-	es.mSpanIDs[string(dbKey)] = strings.Split(string(dbVal), SEP)
-	return nil
-}
+// func Unmarshal(dbKey, dbVal []byte) error {
+// 	if es.mSpanIDs == nil {
+// 		es.mSpanIDs = make(map[string][]string)
+// 	}
+// 	es.mSpanIDs[string(dbKey)] = strings.Split(string(dbVal), SEP)
+// 	return nil
+// }
 
 func CurrIDs() []string {
 	return es.mSpanIDs[NowSpan()]
 }
 
 // past: such as "2h20m", "30m", "2s"
-// order: "DESC", "ASC"
-func FetchEvtIDsByTm(past, order string) (ids []string, err error) {
-	
+func FetchEvtIDsByTm(past string) (ids []string, err error) {
+
 	ids = FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 	ids = Reverse(ids)
 
@@ -217,35 +216,23 @@ func FetchEvtIDsByTm(past, order string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		if err = FillEvtSpan(ts); err != nil {
+		idsEach, err := GetEvtSpan(ts)
+		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
 		}
-		_, vs := Map2KVs(es.mSpanIDs, func(i, j string) bool {
-			switch order {
-			case "ASC":
-				return i < j
-			case "DESC":
-				return i > j
-			default:
-				return i > j
-			}
-		}, nil)
-		ids = append(ids, MergeArray(vs...)...)
+		ids = append(ids, idsEach...)
 	}
 	return
 }
 
-// default IDs period is one week.
-// if one week's events is less than [n], return all of week's events
-func FetchEvtIDsByCnt(n int, period, order string) (ids []string, err error) {
+// default IDs period is one week. [period] is like '10h', '500m' etc.
+// if events count is less than [n], return all events
+func FetchEvtIDsByCnt(n int, period string) (ids []string, err error) {
 	if len(period) == 0 {
 		period = "168h"
 	}
-	if len(order) == 0 {
-		order = "DESC"
-	}
-	ids, err = FetchEvtIDsByTm(period, order)
+	ids, err = FetchEvtIDsByTm(period)
 	if err != nil {
 		return nil, err
 	}

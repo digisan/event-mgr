@@ -102,22 +102,19 @@ func TestAddEventV2(t *testing.T) {
 	fmt.Println("------> total:", n)
 }
 
-func TestListEvtSpan(t *testing.T) {
+func TestGetAllEvtSpan(t *testing.T) {
 
 	InitDB("./data")
 	defer CloseDB()
 
 	InitEventSpan("MINUTE")
 
-	if err := ListEvtSpan(); err != nil {
+	ids, err := GetAllEvtSpan()
+	if err != nil {
 		panic(err)
 	}
 
-	n := 0
-	for _, ids := range es.mSpanIDs {
-		n += len(ids)
-	}
-	fmt.Println("------> total:", n)
+	fmt.Println("------> total:", len(ids))
 }
 
 func TestGetEvtSpan(t *testing.T) {
@@ -129,11 +126,12 @@ func TestGetEvtSpan(t *testing.T) {
 
 	// fmt.Println(NowSpan())
 
-	if err := FillEvtSpan("27561528"); err != nil {
+	ids, err := GetEvtSpan("27561528")
+	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(es)
+	fmt.Println(ids)
 }
 
 func TestFetchSpanIDsByTime(t *testing.T) {
@@ -143,8 +141,7 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 
 	InitEventSpan("MINUTE")
 
-	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByTm("40m", "DESC")
+	ids, err := FetchEvtIDsByTm("40m")
 	if err != nil {
 		panic(err)
 	}
@@ -160,8 +157,7 @@ func TestFetchSpanIDsByCnt(t *testing.T) {
 
 	InitEventSpan("MINUTE")
 
-	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByCnt(200, "", "") // 'a week' period, 'DESC' sort
+	ids, err := FetchEvtIDsByCnt(200, "") // 'a week' period
 	if err != nil {
 		panic(err)
 	}

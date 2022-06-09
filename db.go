@@ -2,9 +2,11 @@ package eventmgr
 
 import (
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
+	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
 
@@ -143,11 +145,12 @@ func SaveEvtSpan() error {
 	})
 }
 
-func ListEvtSpan() error {
+func GetAllEvtSpan() ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	return eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
+	var idsGrp [][]string
+	err := eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -156,18 +159,22 @@ func ListEvtSpan() error {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			item.Value(func(v []byte) error {
-				return Unmarshal(item.Key(), v)
+				idsGrp = append(idsGrp, strings.Split(string(v), SEP))
+				return nil
 			})
 		}
 		return nil
 	})
+	return MergeArray(idsGrp...), err
 }
 
-func FillEvtSpan(ts string) error {
+func GetEvtSpan(ts string) ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	return eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
+	var ids []string
+
+	return ids, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -177,7 +184,8 @@ func FillEvtSpan(ts string) error {
 		if it.Seek(prefix); it.ValidForPrefix(prefix) {
 			item := it.Item()
 			item.Value(func(v []byte) error {
-				return Unmarshal(item.Key(), v)
+				ids = strings.Split(string(v), SEP)
+				return nil
 			})
 		}
 		return nil
