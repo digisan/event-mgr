@@ -30,7 +30,8 @@ func open(dir string) *badger.DB {
 	return db
 }
 
-func GetDB(dir string) *EDB {
+// init global 'eDB'
+func InitDB(dir string) *EDB {
 	if eDB == nil {
 		once.Do(func() {
 			eDB = &EDB{
@@ -44,28 +45,28 @@ func GetDB(dir string) *EDB {
 	return eDB
 }
 
-func (db *EDB) Close() {
-	db.Lock()
-	defer db.Unlock()
+func CloseDB() {
+	eDB.Lock()
+	defer eDB.Unlock()
 
-	if db.dbSpanIDs != nil {
-		lk.FailOnErr("%v", db.dbSpanIDs.Close())
-		db.dbSpanIDs = nil
+	if eDB.dbSpanIDs != nil {
+		lk.FailOnErr("%v", eDB.dbSpanIDs.Close())
+		eDB.dbSpanIDs = nil
 	}
 
-	if db.dbIDEvt != nil {
-		lk.FailOnErr("%v", db.dbIDEvt.Close())
-		db.dbIDEvt = nil
+	if eDB.dbIDEvt != nil {
+		lk.FailOnErr("%v", eDB.dbIDEvt.Close())
+		eDB.dbIDEvt = nil
 	}
 
-	if db.dbIDSubIDs != nil {
-		lk.FailOnErr("%v", db.dbIDSubIDs.Close())
-		db.dbIDSubIDs = nil
+	if eDB.dbIDSubIDs != nil {
+		lk.FailOnErr("%v", eDB.dbIDSubIDs.Close())
+		eDB.dbIDSubIDs = nil
 	}
 
-	if db.dbOwnerIDs != nil {
-		lk.FailOnErr("%v", db.dbOwnerIDs.Close())
-		db.dbOwnerIDs = nil
+	if eDB.dbOwnerIDs != nil {
+		lk.FailOnErr("%v", eDB.dbOwnerIDs.Close())
+		eDB.dbOwnerIDs = nil
 	}
 }
 
@@ -109,23 +110,23 @@ func (db *EDB) Close() {
 // 	})
 // }
 
-func (db *EDB) SaveEvt(evt *Event, lock bool) error {
+func SaveEvt(evt *Event, lock bool) error {
 	if lock {
-		db.Lock()
-		defer db.Unlock()
+		eDB.Lock()
+		defer eDB.Unlock()
 	}
-	return db.dbIDEvt.Update(func(txn *badger.Txn) error {
+	return eDB.dbIDEvt.Update(func(txn *badger.Txn) error {
 		return txn.Set(evt.Marshal())
 	})
 }
 
-func (db *EDB) GetEvt(id string) (evt *Event, err error) {
-	db.Lock()
-	defer db.Unlock()
+func GetEvt(id string) (evt *Event, err error) {
+	eDB.Lock()
+	defer eDB.Unlock()
 
 	evt = &Event{}
 
-	return evt, db.dbIDEvt.View(func(txn *badger.Txn) error {
+	return evt, eDB.dbIDEvt.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		it := txn.NewIterator(opts)
 		defer it.Close()
@@ -140,23 +141,23 @@ func (db *EDB) GetEvt(id string) (evt *Event, err error) {
 	})
 }
 
-func (db *EDB) SaveEvtSpan(es *EventSpan, lock bool) error {
+func SaveEvtSpan(es *EventSpan, lock bool) error {
 	if lock {
-		db.Lock()
-		defer db.Unlock()
+		eDB.Lock()
+		defer eDB.Unlock()
 	}
-	return db.dbSpanIDs.Update(func(txn *badger.Txn) error {
+	return eDB.dbSpanIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(es.Marshal())
 	})
 }
 
-func (db *EDB) ListEvtSpan() (es *EventSpan, err error) {
-	db.Lock()
-	defer db.Unlock()
+func ListEvtSpan() (es *EventSpan, err error) {
+	eDB.Lock()
+	defer eDB.Unlock()
 
 	es = &EventSpan{}
 
-	return es, db.dbSpanIDs.View(func(txn *badger.Txn) error {
+	return es, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -172,13 +173,13 @@ func (db *EDB) ListEvtSpan() (es *EventSpan, err error) {
 	})
 }
 
-func (db *EDB) GetEvtSpan(ts string) (es *EventSpan, err error) {
-	db.Lock()
-	defer db.Unlock()
+func GetEvtSpan(ts string) (es *EventSpan, err error) {
+	eDB.Lock()
+	defer eDB.Unlock()
 
 	es = &EventSpan{}
 
-	return es, db.dbSpanIDs.View(func(txn *badger.Txn) error {
+	return es, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -189,6 +190,37 @@ func (db *EDB) GetEvtSpan(ts string) (es *EventSpan, err error) {
 			item := it.Item()
 			item.Value(func(v []byte) error {
 				return es.Unmarshal(item.Key(), v)
+			})
+		}
+		return nil
+	})
+}
+
+func SaveOwn(own *Own, lock bool) error {
+	if lock {
+		eDB.Lock()
+		defer eDB.Unlock()
+	}
+	return eDB.dbOwnerIDs.Update(func(txn *badger.Txn) error {
+		return txn.Set(own.Marshal())
+	})
+}
+
+func GetOwn(owner, yyyymm string) (own *Own, err error) {
+	eDB.Lock()
+	defer eDB.Unlock()
+
+	own = &Own{}
+
+	return own, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		if it.Seek([]byte(owner + "@" + yyyymm)); it.Valid() {
+			item := it.Item()
+			item.Value(func(val []byte) error {
+				return own.Unmarshal(item.Key(), val)
 			})
 		}
 		return nil

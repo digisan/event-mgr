@@ -11,17 +11,17 @@ import (
 
 func TestAddEvent(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
 	//
 	// Init *** EventSpan ***
 	//
-	es := NewEventSpan("MINUTE", edb.SaveEvtSpan)
+	es := NewEventSpan("MINUTE", SaveEvtSpan)
 
 	// fmt.Println(es.CurrIDs())
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -34,7 +34,7 @@ func TestAddEvent(t *testing.T) {
 				//
 				// Get *** Event ***
 				//
-				evt := NewEvent("", "uname", "eType", "metajson", edb.SaveEvt)
+				evt := NewEvent("", "uname", "eType", "metajson", SaveEvt)
 
 				/////////////////////////////////
 
@@ -50,8 +50,9 @@ func TestAddEvent(t *testing.T) {
 				/////////////////////////////////
 
 				lk.FailOnErr("%v", es.AddEvent(evt))
+
 			case <-done:
-				lk.FailOnErr("%v", es.Flush())
+				lk.FailOnErr("%v", es.Flush(true))
 				return
 			}
 		}
@@ -65,10 +66,10 @@ func TestAddEvent(t *testing.T) {
 
 func TestListEvtSpan(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
-	es, err := edb.ListEvtSpan()
+	es, err := ListEvtSpan()
 	if err != nil {
 		panic(err)
 	}
@@ -78,12 +79,12 @@ func TestListEvtSpan(t *testing.T) {
 
 func TestGetEvtSpan(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
 	// fmt.Println(NowSpan())
 
-	es, err := edb.GetEvtSpan("27561528")
+	es, err := GetEvtSpan("27561528")
 	if err != nil {
 		panic(err)
 	}
@@ -93,11 +94,11 @@ func TestGetEvtSpan(t *testing.T) {
 
 func TestFetchSpanIDsByTime(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
 	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByTm(edb, "4m", "DESC")
+	ids, err := FetchEvtIDsByTm("40m", "DESC")
 	if err != nil {
 		panic(err)
 	}
@@ -108,11 +109,11 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 
 func TestFetchSpanIDsByCnt(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
 	SetSpanType("MINUTE")
-	ids, err := FetchEvtIDsByCnt(edb, 20, "", "") // 'a week' period, 'DESC' sort
+	ids, err := FetchEvtIDsByCnt(200, "", "") // 'a week' period, 'DESC' sort
 	if err != nil {
 		panic(err)
 	}
@@ -123,23 +124,24 @@ func TestFetchSpanIDsByCnt(t *testing.T) {
 
 func TestGetEvt(t *testing.T) {
 
-	edb := GetDB("./data")
-	defer edb.Close()
+	InitDB("./data")
+	defer CloseDB()
 
 	id := "03dd1fc3-1abe-45c9-89a3-aa806f10c5d6"
 
-	evt, err := edb.GetEvt(id)
+	evt, err := GetEvt(id)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("---------------\n%v---------------\n", evt)
 
-	evt.OnDbStore(edb.SaveEvt)
+	evt.OnDbStore(SaveEvt)
+
 	if err := evt.Publish(true); err != nil { // make this event public
 		panic(err)
 	}
 
-	evt, err = edb.GetEvt(id)
+	evt, err = GetEvt(id)
 	if err != nil {
 		panic(err)
 	}
@@ -163,4 +165,18 @@ func TestMarshal(t *testing.T) {
 	fmt.Println()
 
 	fmt.Println(evt1)
+}
+
+func TestFetchOwn(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	ids, err := FetchOwn("uname", "202206")
+	lk.WarnOnErr("%v", err)
+
+	for i, eid := range ids {
+		fmt.Println(i, eid)
+	}
+
 }

@@ -11,9 +11,15 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
+type TempEvt struct {
+	owner  string
+	yyyymm string
+	evtId  string
+}
+
 var (
 	curSpanType = "TEN_MINUTE"
-	cacheIDs    = []string{}
+	cache       = []TempEvt{}
 )
 
 var mSpanType = map[string]int64{
@@ -121,36 +127,42 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	lk.Log("%v", evt)
 
 	// temp cache ids filling...
-	cacheIDs = append(cacheIDs, evt.ID)
+	cache = append(cache, TempEvt{
+		owner:  evt.Owner,
+		yyyymm: evt.Tm.Format("200601"),
+		evtId:  evt.ID,
+	})
 
 	///////////////////////////////////////////////
 
 	if es.prevSpan != "" && dbKey != es.prevSpan {
-		if es.fnDbAppend == nil {
-			return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
-		}
-		if err := es.fnDbAppend(es, false); err != nil { // store mSpanRefIDs at 'prevSpan'
-			return err
-		}
-		delete(es.mSpanIDs, es.prevSpan)
-
-		// temp cache ids clearing...
-		cacheIDs = cacheIDs[:0]
+		es.Flush(false) // already locked
 	}
 
 	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
 	return nil
 }
 
-func (es *EventSpan) Flush() error {
+// only manually use it at exiting...
+func (es *EventSpan) Flush(lock bool) error {
+
+	// store a batch of span event IDs
 	if es.fnDbAppend == nil {
 		return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
 	}
-	es.prevSpan = NowSpan()
-	if err := es.fnDbAppend(es, true); err != nil { // store mSpanRefIDs at 'prevSpan'
+	if err := es.fnDbAppend(es, lock); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
 	delete(es.mSpanIDs, es.prevSpan)
+
+	// update owner - eventIDs storage
+	if err := updateOwn(cache...); err != nil {
+		return err
+	}
+
+	// temp cache ids clearing...
+	cache = cache[:0]
+
 	return nil
 }
 
@@ -174,9 +186,9 @@ func (es *EventSpan) CurrIDs() []string {
 
 // past: such as "2h20m", "30m", "2s"
 // order: "DESC", "ASC"
-func FetchEvtIDsByTm(edb *EDB, past, order string) (ids []string, err error) {
+func FetchEvtIDsByTm(past, order string) (ids []string, err error) {
 
-	ids = append(ids, cacheIDs...)
+	ids = FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 	ids = Reverse(ids)
 
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
@@ -188,7 +200,7 @@ func FetchEvtIDsByTm(edb *EDB, past, order string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		es, err := edb.GetEvtSpan(ts)
+		es, err := GetEvtSpan(ts)
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
@@ -210,14 +222,14 @@ func FetchEvtIDsByTm(edb *EDB, past, order string) (ids []string, err error) {
 
 // default IDs period is one week.
 // if one week's events is less than [n], return all of week's events
-func FetchEvtIDsByCnt(edb *EDB, n int, period, order string) (ids []string, err error) {
+func FetchEvtIDsByCnt(n int, period, order string) (ids []string, err error) {
 	if len(period) == 0 {
 		period = "168h"
 	}
 	if len(order) == 0 {
 		order = "DESC"
 	}
-	ids, err = FetchEvtIDsByTm(edb, period, order)
+	ids, err = FetchEvtIDsByTm(period, order)
 	if err != nil {
 		return nil, err
 	}

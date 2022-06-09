@@ -4,34 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	lk "github.com/digisan/logkit"
 )
 
-// key: Owner-TmYM;
+// key:   Owner@YYYYMM
 // value: EventIDs ([uuid])
 type Own struct {
-	Owner     string   // uname
-	TmYM      string   // e.g. 2022-06 2024-12
-	EventIDs  []string // [uuid]
-	fnDbStore func(*Own, bool) error
-}
-
-// for load
-func NewOwn(owner string, onDbStore func(*Own, bool) error) *Own {
-	return &Own{
-		Owner:     owner,
-		TmYM:      time.Now().Format("2006-01"),
-		EventIDs:  []string{},
-		fnDbStore: onDbStore,
-	}
+	OwnerYM   string                 // uname@202206
+	EventIDs  []string               // [uuid]
+	fnDbStore func(*Own, bool) error // in db.go
 }
 
 func (own Own) String() string {
 	sb := strings.Builder{}
-	sb.WriteString(own.Owner + "\n")
-	sb.WriteString(own.TmYM + "\n")
+	sb.WriteString(own.OwnerYM + "\n")
 	for i, id := range own.EventIDs {
 		sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", i, id))
 	}
@@ -39,16 +26,14 @@ func (own Own) String() string {
 }
 
 func (own *Own) Marshal() (forkey, forValue []byte) {
-	lk.FailOnErrWhen(len(own.Owner) == 0, "%v", errors.New("empty owner"))
-	forkey = []byte(fmt.Sprintf("%s@%s", own.Owner, own.TmYM))
+	lk.FailOnErrWhen(len(own.OwnerYM) == 0, "%v", errors.New("empty owner"))
+	forkey = []byte(own.OwnerYM)
 	forValue = []byte(fmt.Sprint(own.EventIDs))
 	return
 }
 
 func (own *Own) Unmarshal(dbKey, dbVal []byte) error {
-	ss := strings.SplitN(string(dbKey), "@", 2)
-	own.Owner = ss[0]
-	own.TmYM = ss[1]
+	own.OwnerYM = string(dbKey)
 
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
@@ -62,4 +47,30 @@ func (own *Own) OnDbStore(dbStore func(*Own, bool) error) {
 	own.fnDbStore = dbStore
 }
 
-////////////////////
+func updateOwn(tmpEvts ...TempEvt) error {
+	for _, evt := range tmpEvts {
+		own, err := GetOwn(evt.owner, evt.yyyymm)
+		if err != nil {
+			return err
+		}
+
+		own.OnDbStore(SaveOwn)
+
+		own.OwnerYM = evt.owner + "@" + evt.yyyymm
+		own.EventIDs = append([]string{evt.evtId}, own.EventIDs...)
+
+		err = own.fnDbStore(own, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func FetchOwn(owner, yyyymm string) ([]string, error) {
+	own, err := GetOwn(owner, yyyymm)
+	if err != nil {
+		return nil, err
+	}
+	return own.EventIDs, nil
+}

@@ -10,13 +10,13 @@ import (
 
 func main() {
 
-	edb := em.GetDB("./data")
-	defer edb.Close()
+	em.InitDB("./data")
+	defer em.CloseDB()
 
 	//
 	// Init *** EventSpan ***
 	//
-	es := em.NewEventSpan("MINUTE", edb.SaveEvtSpan)
+	es := em.NewEventSpan("MINUTE", em.SaveEvtSpan)
 
 	// fmt.Println(es.CurrIDs())
 
@@ -33,13 +33,13 @@ func main() {
 				//
 				// Get *** Event ***
 				//
-				evt := em.NewEvent("", "uname", "eType", "metajson", edb.SaveEvt)
+				evt := em.NewEvent("", "uname", "eType", "metajson", em.SaveEvt)
 
 				/////////////////////////////////
 
 				lk.FailOnErr("%v", es.AddEvent(evt))
 			case <-done:
-				lk.FailOnErr("%v", es.Flush())
+				lk.FailOnErr("%v", es.Flush(true))
 				return
 			}
 		}
