@@ -16,7 +16,7 @@ func main() {
 	//
 	// Init *** EventSpan ***
 	//
-	es := em.NewEventSpan("MINUTE")
+	em.InitEventSpan("MINUTE")
 
 	// fmt.Println(es.CurrIDs())
 
@@ -37,9 +37,9 @@ func main() {
 
 				/////////////////////////////////
 
-				lk.FailOnErr("%v", es.AddEvent(evt))
+				lk.FailOnErr("%v", em.AddEvent(evt))
 			case <-done:
-				lk.FailOnErr("%v", es.Flush(true))
+				lk.FailOnErr("%v", em.Flush(true))
 				return
 			}
 		}

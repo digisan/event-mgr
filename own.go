@@ -11,9 +11,9 @@ import (
 // key:   Owner@YYYYMM
 // value: EventIDs ([uuid])
 type Own struct {
-	OwnerYM   string                 // uname@202206
-	EventIDs  []string               // [uuid]
-	fnDbStore func(*Own, bool) error // in db.go
+	OwnerYM   string           // uname@202206
+	EventIDs  []string         // [uuid]
+	fnDbStore func(*Own) error // in db.go
 }
 
 func (own Own) String() string {
@@ -43,7 +43,7 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) error {
 	return nil
 }
 
-func (own *Own) OnDbStore(dbStore func(*Own, bool) error) {
+func (own *Own) OnDbStore(dbStore func(*Own) error) {
 	own.fnDbStore = dbStore
 }
 
@@ -59,7 +59,7 @@ func updateOwn(tmpEvts ...TempEvt) error {
 		own.OwnerYM = evt.owner + "@" + evt.yyyymm
 		own.EventIDs = append([]string{evt.evtId}, own.EventIDs...)
 
-		err = own.fnDbStore(own, false)
+		err = own.fnDbStore(own)
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,7 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
-var once sync.Once
+var onceEDB sync.Once
 
 type EDB struct {
 	sync.Mutex
@@ -33,7 +33,7 @@ func open(dir string) *badger.DB {
 // init global 'eDB'
 func InitDB(dir string) *EDB {
 	if eDB == nil {
-		once.Do(func() {
+		onceEDB.Do(func() {
 			eDB = &EDB{
 				dbSpanIDs:  open(filepath.Join(dir, "span-ids")),
 				dbIDEvt:    open(filepath.Join(dir, "id-event")),
@@ -110,11 +110,7 @@ func CloseDB() {
 // 	})
 // }
 
-func SaveEvt(evt *Event, lock bool) error {
-	if lock {
-		eDB.Lock()
-		defer eDB.Unlock()
-	}
+func SaveEvt(evt *Event) error {
 	return eDB.dbIDEvt.Update(func(txn *badger.Txn) error {
 		return txn.Set(evt.Marshal())
 	})
@@ -141,23 +137,17 @@ func GetEvt(id string) (evt *Event, err error) {
 	})
 }
 
-func SaveEvtSpan(es *EventSpan, lock bool) error {
-	if lock {
-		eDB.Lock()
-		defer eDB.Unlock()
-	}
+func SaveEvtSpan() error {
 	return eDB.dbSpanIDs.Update(func(txn *badger.Txn) error {
-		return txn.Set(es.Marshal())
+		return txn.Set(Marshal())
 	})
 }
 
-func ListEvtSpan() (es *EventSpan, err error) {
+func ListEvtSpan() error {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	es = &EventSpan{}
-
-	return es, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
+	return eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -166,20 +156,18 @@ func ListEvtSpan() (es *EventSpan, err error) {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			item.Value(func(v []byte) error {
-				return es.Unmarshal(item.Key(), v)
+				return Unmarshal(item.Key(), v)
 			})
 		}
 		return nil
 	})
 }
 
-func GetEvtSpan(ts string) (es *EventSpan, err error) {
+func FillEvtSpan(ts string) error {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	es = &EventSpan{}
-
-	return es, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
+	return eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
@@ -189,18 +177,14 @@ func GetEvtSpan(ts string) (es *EventSpan, err error) {
 		if it.Seek(prefix); it.ValidForPrefix(prefix) {
 			item := it.Item()
 			item.Value(func(v []byte) error {
-				return es.Unmarshal(item.Key(), v)
+				return Unmarshal(item.Key(), v)
 			})
 		}
 		return nil
 	})
 }
 
-func SaveOwn(own *Own, lock bool) error {
-	if lock {
-		eDB.Lock()
-		defer eDB.Unlock()
-	}
+func SaveOwn(own *Own) error {
 	return eDB.dbOwnerIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(own.Marshal())
 	})

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	. "github.com/digisan/go-generics/v2"
+	"github.com/digisan/gotk/misc"
 	"github.com/digisan/gotk/strs"
 	lk "github.com/digisan/logkit"
 )
@@ -17,10 +18,12 @@ type TempEvt struct {
 	evtId  string
 }
 
-var (
-	curSpanType = "TEN_MINUTE"
-	cache       = []TempEvt{}
-)
+// key: span; value: IDs
+type EventSpan struct {
+	mtx      *sync.Mutex
+	mSpanIDs map[string][]string
+	prevSpan string
+}
 
 var mSpanType = map[string]int64{
 	"DAY":          1440,
@@ -34,6 +37,13 @@ var mSpanType = map[string]int64{
 	"TWO_MINUTE":   2,
 	"MINUTE":       1,
 }
+
+var (
+	onceES      sync.Once
+	es          *EventSpan = nil
+	curSpanType            = "MINUTE"
+	cache                  = []TempEvt{}
+)
 
 func SetSpanType(spanType string) error {
 	if _, ok := mSpanType[spanType]; !ok {
@@ -74,23 +84,18 @@ func FutureSpan(tm string) string {
 	return getSpan(tm, false)
 }
 
-// key: span; value: IDs
-type EventSpan struct {
-	mtx        *sync.Mutex
-	mSpanIDs   map[string][]string
-	prevSpan   string
-	fnDbAppend func(*EventSpan, bool) error
-}
-
-func NewEventSpan(spanType string) *EventSpan {
+func InitEventSpan(spanType string) {
 	if len(spanType) != 0 {
 		SetSpanType(spanType)
 	}
-	return &EventSpan{
-		mtx:        &sync.Mutex{},
-		mSpanIDs:   make(map[string][]string),
-		prevSpan:   "",
-		fnDbAppend: SaveEvtSpan,
+	if es == nil {
+		onceES.Do(func() {
+			es = &EventSpan{
+				mtx:      &sync.Mutex{},
+				mSpanIDs: make(map[string][]string),
+				prevSpan: "",
+			}
+		})
 	}
 }
 
@@ -105,11 +110,7 @@ func (es EventSpan) String() string {
 	return sb.String()
 }
 
-func (es *EventSpan) OnDbAppend(dbUpdate func(*EventSpan, bool) error) {
-	es.fnDbAppend = dbUpdate
-}
-
-func (es *EventSpan) AddEvent(evt *Event) error {
+func AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
 
@@ -121,10 +122,10 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	if evt.fnDbStore == nil {
 		return fmt.Errorf("Event [OnDbStore] must be done before AddEvent")
 	}
-	if err := evt.fnDbStore(evt, false); err != nil {
+	if err := evt.fnDbStore(evt); err != nil {
 		return err
 	}
-	lk.Log("%v", evt)
+	// lk.Log("%v", evt)
 
 	// temp cache ids filling...
 	cache = append(cache, TempEvt{
@@ -136,7 +137,12 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 	///////////////////////////////////////////////
 
 	if es.prevSpan != "" && dbKey != es.prevSpan {
-		es.Flush(false) // already locked
+		done := make(chan struct{})
+		go func() {
+			Flush(false) // already locked
+			done <- struct{}{}
+		}()
+		<-done
 	}
 
 	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
@@ -144,13 +150,24 @@ func (es *EventSpan) AddEvent(evt *Event) error {
 }
 
 // only manually use it at exiting...
-func (es *EventSpan) Flush(lock bool) error {
+func Flush(lock bool) error {
+	if lock {
+		es.mtx.Lock()
+		defer es.mtx.Unlock()
+	}
+
+	defer misc.TrackTime(time.Now())
+
+	// if lock {
+	// 	fmt.Println("final flushing...")
+	// }
+	// ks, vs := Map2KVs(es.mSpanIDs, nil, nil)
+	// for i, span := range ks {
+	// 	lk.Log("flushing ------>  %s - %d", span, len(vs[i]))
+	// }
 
 	// store a batch of span event IDs
-	if es.fnDbAppend == nil {
-		return fmt.Errorf("EventSpan [SetDbAppendFunc] must be done before AddEvent")
-	}
-	if err := es.fnDbAppend(es, lock); err != nil { // store mSpanRefIDs at 'prevSpan'
+	if err := SaveEvtSpan(); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
 	delete(es.mSpanIDs, es.prevSpan)
@@ -166,13 +183,13 @@ func (es *EventSpan) Flush(lock bool) error {
 	return nil
 }
 
-func (es *EventSpan) Marshal() (forKey, forValue []byte) {
+func Marshal() (forKey, forValue []byte) {
 	forKey = []byte(es.prevSpan)
 	forValue = []byte(strings.Join(es.mSpanIDs[es.prevSpan], SEP))
 	return
 }
 
-func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
+func Unmarshal(dbKey, dbVal []byte) error {
 	if es.mSpanIDs == nil {
 		es.mSpanIDs = make(map[string][]string)
 	}
@@ -180,14 +197,14 @@ func (es *EventSpan) Unmarshal(dbKey, dbVal []byte) error {
 	return nil
 }
 
-func (es *EventSpan) CurrIDs() []string {
+func CurrIDs() []string {
 	return es.mSpanIDs[NowSpan()]
 }
 
 // past: such as "2h20m", "30m", "2s"
 // order: "DESC", "ASC"
 func FetchEvtIDsByTm(past, order string) (ids []string, err error) {
-
+	
 	ids = FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 	ids = Reverse(ids)
 
@@ -200,8 +217,7 @@ func FetchEvtIDsByTm(past, order string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		es, err := GetEvtSpan(ts)
-		if err != nil {
+		if err = FillEvtSpan(ts); err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
 		}

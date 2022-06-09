@@ -23,7 +23,7 @@ type Event struct {
 	EvtType   string
 	MetaJSON  string
 	Public    bool
-	fnDbStore func(*Event, bool) error
+	fnDbStore func(*Event) error
 }
 
 // if [id] is empty, a new one will be assigned to event.
@@ -153,9 +153,9 @@ func (evt *Event) Publish(pub bool) error {
 	if evt.fnDbStore == nil {
 		return errors.New("fnDbStore is nil, Do 'OnDbStore' before Publish")
 	}
-	return evt.fnDbStore(evt, true)
+	return evt.fnDbStore(evt)
 }
 
-func (evt *Event) OnDbStore(dbStore func(*Event, bool) error) {
+func (evt *Event) OnDbStore(dbStore func(*Event) error) {
 	evt.fnDbStore = dbStore
 }
