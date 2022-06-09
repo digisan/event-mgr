@@ -16,7 +16,7 @@ func main() {
 	//
 	// Init *** EventSpan ***
 	//
-	es := em.NewEventSpan("MINUTE", em.SaveEvtSpan)
+	es := em.NewEventSpan("MINUTE")
 
 	// fmt.Println(es.CurrIDs())
 
@@ -33,7 +33,7 @@ func main() {
 				//
 				// Get *** Event ***
 				//
-				evt := em.NewEvent("", "uname", "eType", "metajson", em.SaveEvt)
+				evt := em.NewEvent("", "uname", "eType", "metajson")
 
 				/////////////////////////////////
 

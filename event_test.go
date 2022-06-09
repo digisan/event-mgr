@@ -17,7 +17,7 @@ func TestAddEvent(t *testing.T) {
 	//
 	// Init *** EventSpan ***
 	//
-	es := NewEventSpan("MINUTE", SaveEvtSpan)
+	es := NewEventSpan("MINUTE")
 
 	// fmt.Println(es.CurrIDs())
 
@@ -34,7 +34,7 @@ func TestAddEvent(t *testing.T) {
 				//
 				// Get *** Event ***
 				//
-				evt := NewEvent("", "uname", "eType", "metajson", SaveEvt)
+				evt := NewEvent("", "uname", "eType", "metajson")
 
 				/////////////////////////////////
 
@@ -52,6 +52,9 @@ func TestAddEvent(t *testing.T) {
 				lk.FailOnErr("%v", es.AddEvent(evt))
 
 			case <-done:
+
+				fmt.Println("Flushing......................")
+
 				lk.FailOnErr("%v", es.Flush(true))
 				return
 			}
@@ -62,6 +65,8 @@ func TestAddEvent(t *testing.T) {
 	ticker.Stop()
 	done <- true
 	fmt.Println("Ticker stopped")
+
+	time.Sleep(2 * time.Second)
 }
 
 func TestListEvtSpan(t *testing.T) {
@@ -151,7 +156,7 @@ func TestGetEvt(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestMarshal(t *testing.T) {
-	evt := NewEvent("", "cdutwhu", "post", "json doc for event description", nil)
+	evt := NewEvent("", "cdutwhu", "post", "json doc for event description")
 
 	fmt.Println(evt)
 

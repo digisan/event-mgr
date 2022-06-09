@@ -27,7 +27,7 @@ type Event struct {
 }
 
 // if [id] is empty, a new one will be assigned to event.
-func NewEvent(id, owner, evtType, meta string, onDbStore func(*Event, bool) error) *Event {
+func NewEvent(id, owner, evtType, meta string) *Event {
 	if len(id) == 0 {
 		id = uuid.NewString()
 	}
@@ -38,7 +38,7 @@ func NewEvent(id, owner, evtType, meta string, onDbStore func(*Event, bool) erro
 		EvtType:   evtType,
 		MetaJSON:  meta,
 		Public:    false,
-		fnDbStore: onDbStore,
+		fnDbStore: SaveEvt,
 	}
 }
 
@@ -97,7 +97,7 @@ func (evt *Event) Marshal() (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(evt.ID) == 0, "%v", errors.New("empty event id"))
 
 	forKey = []byte(evt.ID)
-	
+
 	for i := 0; i < MOV_N; i++ {
 		switch v := evt.ValFieldAddr(i).(type) {
 

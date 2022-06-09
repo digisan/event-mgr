@@ -82,7 +82,7 @@ type EventSpan struct {
 	fnDbAppend func(*EventSpan, bool) error
 }
 
-func NewEventSpan(spanType string, dbUpdate func(*EventSpan, bool) error) *EventSpan {
+func NewEventSpan(spanType string) *EventSpan {
 	if len(spanType) != 0 {
 		SetSpanType(spanType)
 	}
@@ -90,7 +90,7 @@ func NewEventSpan(spanType string, dbUpdate func(*EventSpan, bool) error) *Event
 		mtx:        &sync.Mutex{},
 		mSpanIDs:   make(map[string][]string),
 		prevSpan:   "",
-		fnDbAppend: dbUpdate,
+		fnDbAppend: SaveEvtSpan,
 	}
 }
 
