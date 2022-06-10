@@ -1,6 +1,7 @@
 package eventmgr
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -22,7 +23,6 @@ type TempEvt struct {
 type EventSpan struct {
 	mtx      *sync.Mutex
 	mSpanIDs map[string][]string
-	prevSpan string
 }
 
 var mSpanType = map[string]int64{
@@ -84,7 +84,7 @@ func FutureSpan(tm string) string {
 	return getSpan(tm, false)
 }
 
-func InitEventSpan(spanType string) {
+func InitEventSpan(spanType string, ctx context.Context) {
 	if len(spanType) != 0 {
 		SetSpanType(spanType)
 	}
@@ -93,8 +93,26 @@ func InitEventSpan(spanType string) {
 			es = &EventSpan{
 				mtx:      &sync.Mutex{},
 				mSpanIDs: make(map[string][]string),
-				prevSpan: "",
 			}
+			// <--- flush monitor ---> //
+			ticker := time.NewTicker(time.Duration(1 * int64(time.Second)))
+			pSpan := ""
+			go func() {
+				for {
+					nSpan := NowSpan()
+					select {
+					case <-ctx.Done():
+						lk.FailOnErr("%v", flush(nSpan))
+						ticker.Stop()
+						return
+					case <-ticker.C:
+						if nSpan != pSpan && pSpan != "" {
+							lk.FailOnErr("%v", flush(pSpan))
+						}
+						pSpan = nSpan
+					}
+				}
+			}()
 		})
 	}
 }
@@ -115,9 +133,6 @@ func AddEvent(evt *Event) error {
 	defer es.mtx.Unlock()
 
 	dbKey := NowSpan()
-	defer func() { es.prevSpan = dbKey }()
-
-	///////////////////////////////////////////////
 
 	if evt.fnDbStore == nil {
 		return fmt.Errorf("Event [OnDbStore] must be done before AddEvent")
@@ -134,43 +149,23 @@ func AddEvent(evt *Event) error {
 		evtId:  evt.ID,
 	})
 
-	///////////////////////////////////////////////
-
-	if es.prevSpan != "" && dbKey != es.prevSpan {
-		done := make(chan struct{})
-		go func() {
-			Flush(false) // already locked
-			done <- struct{}{}
-		}()
-		<-done
-	}
-
 	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
 	return nil
 }
 
-// only manually use it at exiting...
-func Flush(lock bool) error {
-	if lock {
-		es.mtx.Lock()
-		defer es.mtx.Unlock()
-	}
+func flush(span string) error {
+	es.mtx.Lock()
+	defer es.mtx.Unlock()
 
 	defer misc.TrackTime(time.Now())
 
-	if lock {
-		fmt.Println("final flushing...")
-	}
-	ks, vs := Map2KVs(es.mSpanIDs, nil, nil)
-	for i, span := range ks {
-		lk.Log("flushing ------>  %s - %d", span, len(vs[i]))
-	}
+	lk.Log("before flushing ------> span: %s -- id count: %d", span, len(es.mSpanIDs[span]))
 
 	// store a batch of span event IDs
-	if err := SaveEvtSpan(); err != nil { // store mSpanRefIDs at 'prevSpan'
+	if err := SaveEvtSpanDB(span); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
-	delete(es.mSpanIDs, es.prevSpan)
+	delete(es.mSpanIDs, span)
 
 	// update owner - eventIDs storage
 	if err := updateOwn(cache...); err != nil {
@@ -183,19 +178,11 @@ func Flush(lock bool) error {
 	return nil
 }
 
-func Marshal() (forKey, forValue []byte) {
-	forKey = []byte(es.prevSpan)
-	forValue = []byte(strings.Join(es.mSpanIDs[es.prevSpan], SEP))
+func MarshalAt(span string) (forKey, forValue []byte) {
+	forKey = []byte(span)
+	forValue = []byte(strings.Join(es.mSpanIDs[span], SEP))
 	return
 }
-
-// func Unmarshal(dbKey, dbVal []byte) error {
-// 	if es.mSpanIDs == nil {
-// 		es.mSpanIDs = make(map[string][]string)
-// 	}
-// 	es.mSpanIDs[string(dbKey)] = strings.Split(string(dbVal), SEP)
-// 	return nil
-// }
 
 func CurrIDs() []string {
 	return es.mSpanIDs[NowSpan()]
@@ -216,7 +203,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		idsEach, err := GetEvtSpan(ts)
+		idsEach, err := GetEvtSpanDB(ts)
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err

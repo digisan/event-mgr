@@ -1,6 +1,7 @@
 package eventmgr
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -13,13 +14,16 @@ import (
 
 func TestAddEvent(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
 	//
 	// Init *** EventSpan ***
 	//
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 	// fmt.Println(es.CurrIDs())
 
 	var n uint64
@@ -38,8 +42,6 @@ func TestAddEvent(t *testing.T) {
 					//
 					evt := NewEvent("", "uname", "eType", "metajson")
 
-					/////////////////////////////////
-
 					//
 					// TEST *** reading when writing ***
 					//
@@ -56,7 +58,7 @@ func TestAddEvent(t *testing.T) {
 				}()
 
 			case <-done:
-				lk.FailOnErr("%v", Flush(true))
+				cancel() // here to inform 'flush' final part; if we leave at defer, it doesn't work
 				return
 			}
 		}
@@ -68,17 +70,19 @@ func TestAddEvent(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	done <- true
-	time.Sleep(10 * time.Second) // some time for flushing...
+	time.Sleep(3 * time.Second) // some time for flushing...
 
 	fmt.Println("------> total:", n)
 }
 
 func TestAddEventV2(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	var n uint64
 	var wg sync.WaitGroup
@@ -97,19 +101,24 @@ func TestAddEventV2(t *testing.T) {
 
 	wg.Wait()
 
-	Flush(true)
-
 	fmt.Println("------> total:", n)
+
+	cancel()
+
+	time.Sleep(5 * time.Second)
 }
 
 func TestGetAllEvtSpan(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
-	ids, err := GetAllEvtSpan()
+	ids, err := GetAllEvtSpanDB()
 	if err != nil {
 		panic(err)
 	}
@@ -119,14 +128,17 @@ func TestGetAllEvtSpan(t *testing.T) {
 
 func TestGetEvtSpan(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	// fmt.Println(NowSpan())
 
-	ids, err := GetEvtSpan("27561528")
+	ids, err := GetEvtSpanDB("27561528")
 	if err != nil {
 		panic(err)
 	}
@@ -136,10 +148,13 @@ func TestGetEvtSpan(t *testing.T) {
 
 func TestFetchSpanIDsByTime(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	ids, err := FetchEvtIDsByTm("40m")
 	if err != nil {
@@ -152,10 +167,13 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 
 func TestFetchSpanIDsByCnt(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	ids, err := FetchEvtIDsByCnt(200, "") // 'a week' period
 	if err != nil {
@@ -168,26 +186,29 @@ func TestFetchSpanIDsByCnt(t *testing.T) {
 
 func TestGetEvt(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	id := "03dd1fc3-1abe-45c9-89a3-aa806f10c5d6"
 
-	evt, err := GetEvt(id)
+	evt, err := GetEvtDB(id)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("---------------\n%v---------------\n", evt)
 
-	evt.OnDbStore(SaveEvt)
+	evt.OnDbStore(SaveEvtDB)
 
 	if err := evt.Publish(true); err != nil { // make this event public
 		panic(err)
 	}
 
-	evt, err = GetEvt(id)
+	evt, err = GetEvtDB(id)
 	if err != nil {
 		panic(err)
 	}
@@ -197,7 +218,11 @@ func TestGetEvt(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestMarshal(t *testing.T) {
-	InitEventSpan("MINUTE")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitEventSpan("MINUTE", ctx)
 
 	evt := NewEvent("", "cdutwhu", "post", "json doc for event description")
 
@@ -217,10 +242,13 @@ func TestMarshal(t *testing.T) {
 
 func TestFetchOwn(t *testing.T) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	InitDB("./data")
 	defer CloseDB()
 
-	InitEventSpan("MINUTE")
+	InitEventSpan("MINUTE", ctx)
 
 	ids, err := FetchOwn("uname", "202206")
 	lk.WarnOnErr("%v", err)

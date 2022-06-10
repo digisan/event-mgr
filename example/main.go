@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -10,13 +11,16 @@ import (
 
 func main() {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
 	em.InitDB("./data")
 	defer em.CloseDB()
 
 	//
 	// Init *** EventSpan ***
 	//
-	em.InitEventSpan("MINUTE")
+	em.InitEventSpan("MINUTE", ctx)
 
 	// fmt.Println(es.CurrIDs())
 
@@ -39,7 +43,7 @@ func main() {
 
 				lk.FailOnErr("%v", em.AddEvent(evt))
 			case <-done:
-				lk.FailOnErr("%v", em.Flush(true))
+				cancel()
 				return
 			}
 		}

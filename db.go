@@ -112,13 +112,13 @@ func CloseDB() {
 // 	})
 // }
 
-func SaveEvt(evt *Event) error {
+func SaveEvtDB(evt *Event) error {
 	return eDB.dbIDEvt.Update(func(txn *badger.Txn) error {
 		return txn.Set(evt.Marshal())
 	})
 }
 
-func GetEvt(id string) (evt *Event, err error) {
+func GetEvtDB(id string) (evt *Event, err error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -139,13 +139,13 @@ func GetEvt(id string) (evt *Event, err error) {
 	})
 }
 
-func SaveEvtSpan() error {
+func SaveEvtSpanDB(span string) error {
 	return eDB.dbSpanIDs.Update(func(txn *badger.Txn) error {
-		return txn.Set(Marshal())
+		return txn.Set(MarshalAt(span))
 	})
 }
 
-func GetAllEvtSpan() ([]string, error) {
+func GetAllEvtSpanDB() ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -168,7 +168,7 @@ func GetAllEvtSpan() ([]string, error) {
 	return MergeArray(idsGrp...), err
 }
 
-func GetEvtSpan(ts string) ([]string, error) {
+func GetEvtSpanDB(ts string) ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -192,13 +192,13 @@ func GetEvtSpan(ts string) ([]string, error) {
 	})
 }
 
-func SaveOwn(own *Own) error {
+func SaveOwnDB(own *Own) error {
 	return eDB.dbOwnerIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(own.Marshal())
 	})
 }
 
-func GetOwn(owner, yyyymm string) (own *Own, err error) {
+func GetOwnDB(owner, yyyymm string) (own *Own, err error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 

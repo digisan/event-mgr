@@ -38,7 +38,7 @@ func NewEvent(id, owner, evtType, meta string) *Event {
 		EvtType:   evtType,
 		MetaJSON:  meta,
 		Public:    false,
-		fnDbStore: SaveEvt,
+		fnDbStore: SaveEvtDB,
 	}
 }
 

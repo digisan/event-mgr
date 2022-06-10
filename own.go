@@ -49,12 +49,12 @@ func (own *Own) OnDbStore(dbStore func(*Own) error) {
 
 func updateOwn(tmpEvts ...TempEvt) error {
 	for _, evt := range tmpEvts {
-		own, err := GetOwn(evt.owner, evt.yyyymm)
+		own, err := GetOwnDB(evt.owner, evt.yyyymm)
 		if err != nil {
 			return err
 		}
 
-		own.OnDbStore(SaveOwn)
+		own.OnDbStore(SaveOwnDB)
 
 		own.OwnerYM = evt.owner + "@" + evt.yyyymm
 		own.EventIDs = append([]string{evt.evtId}, own.EventIDs...)
@@ -68,7 +68,7 @@ func updateOwn(tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	own, err := GetOwn(owner, yyyymm)
+	own, err := GetOwnDB(owner, yyyymm)
 	if err != nil {
 		return nil, err
 	}
