@@ -32,7 +32,7 @@ func TestAddEvent(t *testing.T) {
 
 	var n uint64
 
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(20 * time.Millisecond)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -113,7 +113,7 @@ func TestAddEventV2(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
-func TestGetEvtIdAllDB(t *testing.T) {
+func TestGetAllEvtIds(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -123,7 +123,7 @@ func TestGetEvtIdAllDB(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := GetEvtIdAllDB()
+	ids, err := FetchAllEvtIDs() // GetEvtIdAllDB()
 	if err != nil {
 		panic(err)
 	}

@@ -180,7 +180,9 @@ func GetEvtIdAllDB() ([]string, error) {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			if err := item.Value(func(v []byte) error {
-				idsGrp = append(idsGrp, strings.Split(string(v), SEP))
+				if sv := string(v); strings.Contains(sv, SEP) {
+					idsGrp = append(idsGrp, strings.Split(sv, SEP))
+				}
 				return nil
 			}); err != nil {
 				return err
@@ -207,7 +209,9 @@ func GetEvtIdRangeDB(ts string) ([]string, error) {
 		if it.Seek(prefix); it.ValidForPrefix(prefix) {
 			item := it.Item()
 			if err := item.Value(func(v []byte) error {
-				ids = strings.Split(string(v), SEP)
+				if sv := string(v); strings.Contains(sv, SEP) {
+					ids = strings.Split(sv, SEP)
+				}
 				return nil
 			}); err != nil {
 				return err

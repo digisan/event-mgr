@@ -189,6 +189,14 @@ func CurrIDs() []string {
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 }
 
+func FetchAllEvtIDs() (ids []string, err error) {
+	idsDB, err := GetEvtIdAllDB()
+	if err != nil {
+		return nil, err
+	}
+	return append(Reverse(CurrIDs()), idsDB...), nil
+}
+
 // past: such as "2h20m", "30m", "2s"
 func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
