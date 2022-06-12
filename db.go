@@ -131,9 +131,11 @@ func GetEvtDB(id string) (evt *Event, err error) {
 
 		if it.Seek([]byte(id)); it.Valid() {
 			item := it.Item()
-			item.Value(func(val []byte) error {
+			if err := item.Value(func(val []byte) error {
 				return evt.Unmarshal(item.Key(), val)
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -145,7 +147,26 @@ func SaveEvtSpanDB(span string) error {
 	})
 }
 
-func GetAllEvtSpanDB() ([]string, error) {
+func GetSpanAllDB() ([]string, error) {
+	eDB.Lock()
+	defer eDB.Unlock()
+
+	spans := []string{}
+	return spans, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			spans = append(spans, string(item.Key()))
+		}
+		return nil
+	})
+}
+
+func GetEvtIdAllDB() ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -158,17 +179,19 @@ func GetAllEvtSpanDB() ([]string, error) {
 
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			item.Value(func(v []byte) error {
+			if err := item.Value(func(v []byte) error {
 				idsGrp = append(idsGrp, strings.Split(string(v), SEP))
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
 	return MergeArray(idsGrp...), err
 }
 
-func GetEvtSpanDB(ts string) ([]string, error) {
+func GetEvtIdRangeDB(ts string) ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -183,10 +206,12 @@ func GetEvtSpanDB(ts string) ([]string, error) {
 		prefix := []byte(ts)
 		if it.Seek(prefix); it.ValidForPrefix(prefix) {
 			item := it.Item()
-			item.Value(func(v []byte) error {
+			if err := item.Value(func(v []byte) error {
 				ids = strings.Split(string(v), SEP)
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -198,22 +223,63 @@ func SaveOwnDB(own *Own) error {
 	})
 }
 
-func GetOwnDB(owner, yyyymm string) (own *Own, err error) {
+func GetOwnDB(key string) (*Own, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	own = &Own{}
+	rtOwn := &Own{}
 
-	return own, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
+	return rtOwn, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		if it.Seek([]byte(owner + "@" + yyyymm)); it.Valid() {
+		if it.Seek([]byte(key)); it.Valid() {
 			item := it.Item()
-			item.Value(func(val []byte) error {
-				return own.Unmarshal(item.Key(), val)
-			})
+			if err := item.Value(func(val []byte) error {
+				return rtOwn.Unmarshal(item.Key(), val)
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	// return rtOwn, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
+	// 	opts := badger.DefaultIteratorOptions
+	// 	it := txn.NewIterator(opts)
+	// 	defer it.Close()
+
+	// 	prefix := []byte(owner + "@" + yyyymm + "-")
+	// 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+	// 		one := &Own{}
+	// 		item := it.Item()
+	// 		if err := item.Value(func(val []byte) error {
+	// 			return one.Unmarshal(item.Key(), val)
+	// 		}); err != nil {
+	// 			return err
+	// 		}
+	// 		// join each one.EventIDs
+	// 		rtOwn.EventIDs = append(rtOwn.EventIDs, one.EventIDs...)
+	// 	}
+	// 	return nil
+	// })
+}
+
+func GetOwnKeysDB(owner, yyyymm string) ([]string, error) {
+	eDB.Lock()
+	defer eDB.Unlock()
+
+	rtSpans := []string{}
+
+	return rtSpans, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		prefix := []byte(owner + "@" + yyyymm + "-")
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			rtSpans = append(rtSpans, string(it.Item().Key()))
 		}
 		return nil
 	})

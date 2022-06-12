@@ -5,20 +5,21 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
 
-// key:   Owner@YYYYMM
+// key:   Owner@YYYYMM-27582250-1
 // value: EventIDs ([uuid])
 type Own struct {
-	OwnerYM   string           // uname@202206
-	EventIDs  []string         // [uuid]
-	fnDbStore func(*Own) error // in db.go
+	OwnerYMSpan string           // uname@202206-27582250-1
+	EventIDs    []string         // [uuid]
+	fnDbStore   func(*Own) error // in db.go
 }
 
 func (own Own) String() string {
 	sb := strings.Builder{}
-	sb.WriteString(own.OwnerYM + "\n")
+	sb.WriteString(own.OwnerYMSpan + "\n")
 	for i, id := range own.EventIDs {
 		sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", i, id))
 	}
@@ -26,14 +27,14 @@ func (own Own) String() string {
 }
 
 func (own *Own) Marshal() (forkey, forValue []byte) {
-	lk.FailOnErrWhen(len(own.OwnerYM) == 0, "%v", errors.New("empty owner"))
-	forkey = []byte(own.OwnerYM)
+	lk.FailOnErrWhen(len(own.OwnerYMSpan) == 0, "%v", errors.New("empty owner"))
+	forkey = []byte(own.OwnerYMSpan)
 	forValue = []byte(fmt.Sprint(own.EventIDs))
 	return
 }
 
 func (own *Own) Unmarshal(dbKey, dbVal []byte) error {
-	own.OwnerYM = string(dbKey)
+	own.OwnerYMSpan = string(dbKey)
 
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
@@ -47,20 +48,19 @@ func (own *Own) OnDbStore(dbStore func(*Own) error) {
 	own.fnDbStore = dbStore
 }
 
-func updateOwn(tmpEvts ...TempEvt) error {
+func updateOwn(span string, tmpEvts ...TempEvt) error {
+	mOwnerEventIDs := make(map[string][]string)
 	for _, evt := range tmpEvts {
-		own, err := GetOwnDB(evt.owner, evt.yyyymm)
-		if err != nil {
-			return err
+		key := evt.owner + "@" + evt.yyyymm + "-" + span
+		mOwnerEventIDs[key] = append(mOwnerEventIDs[key], evt.evtId)
+	}
+	for owner, ids := range mOwnerEventIDs {
+		own := &Own{
+			OwnerYMSpan: owner,
+			EventIDs:    ids,
+			fnDbStore:   SaveOwnDB,
 		}
-
-		own.OnDbStore(SaveOwnDB)
-
-		own.OwnerYM = evt.owner + "@" + evt.yyyymm
-		own.EventIDs = append([]string{evt.evtId}, own.EventIDs...)
-
-		err = own.fnDbStore(own)
-		if err != nil {
+		if err := own.fnDbStore(own); err != nil {
 			return err
 		}
 	}
@@ -68,9 +68,19 @@ func updateOwn(tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	own, err := GetOwnDB(owner, yyyymm)
+	keys, err := GetOwnKeysDB(owner, yyyymm)
 	if err != nil {
 		return nil, err
 	}
-	return own.EventIDs, nil
+
+	rtIds := []string{}
+	for _, key := range keys {
+		own, err := GetOwnDB(key)
+		if err != nil {
+			return nil, err
+		}
+		rtIds = append(rtIds, own.EventIDs...)
+	}
+
+	return Settify(rtIds...), nil
 }

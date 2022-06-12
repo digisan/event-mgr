@@ -12,6 +12,10 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
+func TestSpan(t *testing.T) {
+	fmt.Println(NowSpan())
+}
+
 func TestAddEvent(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,7 +58,6 @@ func TestAddEvent(t *testing.T) {
 					atomic.AddUint64(&n, 1)
 
 					lk.FailOnErr("%v", AddEvent(evt))
-
 				}()
 
 			case <-done:
@@ -64,16 +67,18 @@ func TestAddEvent(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Minute)
+	time.Sleep(60 * time.Second)
 	ticker.Stop()
 	fmt.Println("Ticker stopped")
 	time.Sleep(1 * time.Second)
 
 	done <- true
-	time.Sleep(3 * time.Second) // some time for flushing...
+	time.Sleep(2 * time.Second) // some time for flushing...
 
 	fmt.Println("------> total:", n)
 }
+
+// wait for a moment to span changed, then running 'V2'
 
 func TestAddEventV2(t *testing.T) {
 
@@ -105,10 +110,10 @@ func TestAddEventV2(t *testing.T) {
 
 	cancel()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
-func TestGetAllEvtSpan(t *testing.T) {
+func TestGetEvtIdAllDB(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -118,7 +123,7 @@ func TestGetAllEvtSpan(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := GetAllEvtSpanDB()
+	ids, err := GetEvtIdAllDB()
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +131,7 @@ func TestGetAllEvtSpan(t *testing.T) {
 	fmt.Println("------> total:", len(ids))
 }
 
-func TestGetEvtSpan(t *testing.T) {
+func TestGetEvtIdRangeDB(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -138,12 +143,32 @@ func TestGetEvtSpan(t *testing.T) {
 
 	// fmt.Println(NowSpan())
 
-	ids, err := GetEvtSpanDB("27561528")
+	ids, err := GetEvtIdRangeDB("27561528")
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println(ids)
+}
+
+func TestGetSpanAllDB(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitDB("./data")
+	defer CloseDB()
+
+	InitEventSpan("MINUTE", ctx)
+
+	spans, err := GetSpanAllDB()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, span := range spans {
+		fmt.Println("--->", span)
+	}
 }
 
 func TestFetchSpanIDsByTime(t *testing.T) {
@@ -240,6 +265,26 @@ func TestMarshal(t *testing.T) {
 	fmt.Println(evt1)
 }
 
+func TestGetOwnKeysDB(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitDB("./data")
+	defer CloseDB()
+
+	InitEventSpan("MINUTE", ctx)
+
+	keys, err := GetOwnKeysDB("uname", "202206")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, key := range keys {
+		fmt.Println("--->", key)
+	}
+}
+
 func TestFetchOwn(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -253,8 +298,11 @@ func TestFetchOwn(t *testing.T) {
 	ids, err := FetchOwn("uname", "202206")
 	lk.WarnOnErr("%v", err)
 
-	for i, eid := range ids {
-		fmt.Println(i, eid)
-	}
+	fmt.Println("----->", len(ids))
 
+	// for i, eid := range ids {
+	// 	fmt.Println(i, eid)
+	// }
+
+	time.Sleep(1 * time.Second)
 }

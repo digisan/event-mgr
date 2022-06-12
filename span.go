@@ -14,15 +14,15 @@ import (
 )
 
 type TempEvt struct {
-	owner  string
-	yyyymm string
-	evtId  string
+	owner  string // uname
+	yyyymm string // "202208"
+	evtId  string // "uuid"
 }
 
-// key: span; value: IDs
+// key: span; value: TempEvts
 type EventSpan struct {
-	mtx      *sync.Mutex
-	mSpanIDs map[string][]string
+	mtx        *sync.Mutex
+	mSpanCache map[string][]TempEvt // key: "27582250-1"
 }
 
 var mSpanType = map[string]int64{
@@ -42,7 +42,6 @@ var (
 	onceES      sync.Once
 	es          *EventSpan = nil
 	curSpanType            = "MINUTE"
-	cache                  = []TempEvt{}
 )
 
 func SetSpanType(spanType string) error {
@@ -91,8 +90,8 @@ func InitEventSpan(spanType string, ctx context.Context) {
 	if es == nil {
 		onceES.Do(func() {
 			es = &EventSpan{
-				mtx:      &sync.Mutex{},
-				mSpanIDs: make(map[string][]string),
+				mtx:        &sync.Mutex{},
+				mSpanCache: make(map[string][]TempEvt),
 			}
 			// <--- flush monitor ---> //
 			ticker := time.NewTicker(time.Duration(1 * int64(time.Second)))
@@ -119,10 +118,12 @@ func InitEventSpan(spanType string, ctx context.Context) {
 
 func (es EventSpan) String() string {
 	sb := strings.Builder{}
-	for span, ids := range es.mSpanIDs {
+	for span, cache := range es.mSpanCache {
 		sb.WriteString(span + ": \n")
-		for idx, id := range ids {
-			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, id))
+		for idx, tEvt := range cache {
+			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.owner))
+			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.yyyymm))
+			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.evtId))
 		}
 	}
 	return sb.String()
@@ -142,14 +143,14 @@ func AddEvent(evt *Event) error {
 	}
 	// lk.Log("%v", evt)
 
-	// temp cache ids filling...
-	cache = append(cache, TempEvt{
+	es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
 		owner:  evt.Owner,
 		yyyymm: evt.Tm.Format("200601"),
 		evtId:  evt.ID,
 	})
 
-	es.mSpanIDs[dbKey] = append(es.mSpanIDs[dbKey], evt.ID)
+	// lk.Log("after adding ------> span: %s -- id count: %d", dbKey, len(es.mSpanCache[dbKey]))
+
 	return nil
 }
 
@@ -159,40 +160,39 @@ func flush(span string) error {
 
 	defer misc.TrackTime(time.Now())
 
-	lk.Log("before flushing ------> span: %s -- id count: %d", span, len(es.mSpanIDs[span]))
+	lk.Log("before flushing ------> span: %s -- id count: %d", span, len(es.mSpanCache[span]))
+
+	// update owner - eventIDs storage
+	if err := updateOwn(span, es.mSpanCache[span]...); err != nil {
+		return err
+	}
 
 	// store a batch of span event IDs
 	if err := SaveEvtSpanDB(span); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
-	delete(es.mSpanIDs, span)
-
-	// update owner - eventIDs storage
-	if err := updateOwn(cache...); err != nil {
-		return err
-	}
-
-	// temp cache ids clearing...
-	cache = cache[:0]
+	delete(es.mSpanCache, span)
 
 	return nil
 }
 
 func MarshalAt(span string) (forKey, forValue []byte) {
 	forKey = []byte(span)
-	forValue = []byte(strings.Join(es.mSpanIDs[span], SEP))
+	cache := es.mSpanCache[span]
+	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
+	forValue = []byte(strings.Join(ids, SEP))
 	return
 }
 
 func CurrIDs() []string {
-	return es.mSpanIDs[NowSpan()]
+	cache := es.mSpanCache[NowSpan()]
+	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 }
 
 // past: such as "2h20m", "30m", "2s"
 func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
-	ids = FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
-	ids = Reverse(ids)
+	ids = Reverse(CurrIDs())
 
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
 	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
@@ -203,7 +203,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		idsEach, err := GetEvtSpanDB(ts)
+		idsEach, err := GetEvtIdRangeDB(ts)
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
