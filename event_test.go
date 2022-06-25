@@ -275,7 +275,7 @@ func TestGetOwnKeysDB(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	keys, err := GetOwnKeysDB("uname", "202206")
+	keys, err := GetOwnSpanKeysDB("uname", "202206")
 	if err != nil {
 		panic(err)
 	}
@@ -305,4 +305,38 @@ func TestFetchOwn(t *testing.T) {
 	// }
 
 	time.Sleep(1 * time.Second)
+}
+
+func TestFollow(t *testing.T) {
+	flw := NewEventFollow("000")
+	flw.AddFollower("1", "2")
+	fmt.Println(flw)
+
+	flw.RmFollower("2", "3")
+	fmt.Println(flw)
+
+	key, val := flw.Marshal()
+	flw1 := NewEventFollow("")
+	flw1.Unmarshal(key, val)
+	fmt.Println(flw1)
+}
+
+func TestFollowDB(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	flw := NewEventFollow("000")
+	flw.OnDbStore(SaveFlwDB)
+
+	err := flw.AddFollower("1", "2")
+	if err == nil {
+		fmt.Println(flw)
+	} else {
+		fmt.Println(err)
+	}
+
+	fmt.Println("-------------")
+
+	fmt.Println(GetFlwDB("0"))
 }

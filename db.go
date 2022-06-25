@@ -1,6 +1,7 @@
 package eventmgr
 
 import (
+	"bytes"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ type EDB struct {
 	sync.Mutex
 	dbSpanIDs  *badger.DB
 	dbIDEvt    *badger.DB
-	dbIDSubIDs *badger.DB
 	dbOwnerIDs *badger.DB
+	dbIDFlwIDs *badger.DB
 }
 
 var eDB *EDB // global, for keeping single instance
@@ -39,8 +40,8 @@ func InitDB(dir string) *EDB {
 			eDB = &EDB{
 				dbSpanIDs:  open(filepath.Join(dir, "span-ids")),
 				dbIDEvt:    open(filepath.Join(dir, "id-event")),
-				dbIDSubIDs: open(filepath.Join(dir, "id-subs")),
 				dbOwnerIDs: open(filepath.Join(dir, "owner-ids")),
+				dbIDFlwIDs: open(filepath.Join(dir, "id-flwids")),
 			}
 		})
 	}
@@ -55,20 +56,17 @@ func CloseDB() {
 		lk.FailOnErr("%v", eDB.dbSpanIDs.Close())
 		eDB.dbSpanIDs = nil
 	}
-
 	if eDB.dbIDEvt != nil {
 		lk.FailOnErr("%v", eDB.dbIDEvt.Close())
 		eDB.dbIDEvt = nil
 	}
-
-	if eDB.dbIDSubIDs != nil {
-		lk.FailOnErr("%v", eDB.dbIDSubIDs.Close())
-		eDB.dbIDSubIDs = nil
-	}
-
 	if eDB.dbOwnerIDs != nil {
 		lk.FailOnErr("%v", eDB.dbOwnerIDs.Close())
 		eDB.dbOwnerIDs = nil
+	}
+	if eDB.dbIDFlwIDs != nil {
+		lk.FailOnErr("%v", eDB.dbIDFlwIDs.Close())
+		eDB.dbIDFlwIDs = nil
 	}
 }
 
@@ -113,35 +111,46 @@ func CloseDB() {
 // }
 
 func SaveEvtDB(evt *Event) error {
+	eDB.Lock()
+	defer eDB.Unlock()
+
 	return eDB.dbIDEvt.Update(func(txn *badger.Txn) error {
 		return txn.Set(evt.Marshal())
 	})
 }
 
-func GetEvtDB(id string) (evt *Event, err error) {
+func GetEvtDB(id string) (*Event, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
-	evt = &Event{}
-
-	return evt, eDB.dbIDEvt.View(func(txn *badger.Txn) error {
+	evt := &Event{}
+	err := eDB.dbIDEvt.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		if it.Seek([]byte(id)); it.Valid() {
-			item := it.Item()
-			if err := item.Value(func(val []byte) error {
-				return evt.Unmarshal(item.Key(), val)
-			}); err != nil {
-				return err
+		bytesKey := []byte(id)
+		if it.Seek(bytesKey); it.Valid() {
+			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
+				if err := item.Value(func(val []byte) error {
+					return evt.Unmarshal(item.Key(), val)
+				}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
 	})
+	if len(evt.ID) == 0 {
+		return nil, err
+	}
+	return evt, err
 }
 
 func SaveEvtSpanDB(span string) error {
+	eDB.Lock()
+	defer eDB.Unlock()
+
 	return eDB.dbSpanIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(MarshalAt(span))
 	})
@@ -222,32 +231,40 @@ func GetEvtIdRangeDB(ts string) ([]string, error) {
 }
 
 func SaveOwnDB(own *Own) error {
+	eDB.Lock()
+	defer eDB.Unlock()
+
 	return eDB.dbOwnerIDs.Update(func(txn *badger.Txn) error {
 		return txn.Set(own.Marshal())
 	})
 }
 
-func GetOwnDB(key string) (*Own, error) {
+func GetOwnDB(ownerYMSpan string) (*Own, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
 	rtOwn := &Own{}
-
-	return rtOwn, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
+	err := eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		if it.Seek([]byte(key)); it.Valid() {
-			item := it.Item()
-			if err := item.Value(func(val []byte) error {
-				return rtOwn.Unmarshal(item.Key(), val)
-			}); err != nil {
-				return err
+		bytesKey := []byte(ownerYMSpan)
+		if it.Seek(bytesKey); it.Valid() {
+			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
+				if err := item.Value(func(val []byte) error {
+					return rtOwn.Unmarshal(item.Key(), val)
+				}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
 	})
+	if len(rtOwn.OwnerYMSpan) == 0 {
+		return nil, err
+	}
+	return rtOwn, err
 
 	// return rtOwn, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
 	// 	opts := badger.DefaultIteratorOptions
@@ -270,7 +287,7 @@ func GetOwnDB(key string) (*Own, error) {
 	// })
 }
 
-func GetOwnKeysDB(owner, yyyymm string) ([]string, error) {
+func GetOwnSpanKeysDB(owner, yyyymm string) ([]string, error) {
 	eDB.Lock()
 	defer eDB.Unlock()
 
@@ -287,4 +304,41 @@ func GetOwnKeysDB(owner, yyyymm string) ([]string, error) {
 		}
 		return nil
 	})
+}
+
+func SaveFlwDB(ef *EventFollow) error {
+	eDB.Lock()
+	defer eDB.Unlock()
+
+	return eDB.dbIDFlwIDs.Update(func(txn *badger.Txn) error {
+		return txn.Set(ef.Marshal())
+	})
+}
+
+func GetFlwDB(FlweeID string) (*EventFollow, error) {
+	eDB.Lock()
+	defer eDB.Unlock()
+
+	rtEvtFlw := &EventFollow{}
+	err := eDB.dbIDFlwIDs.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		bytesKey := []byte(FlweeID)
+		if it.Seek(bytesKey); it.Valid() {
+			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
+				if err := item.Value(func(val []byte) error {
+					return rtEvtFlw.Unmarshal(item.Key(), val)
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if len(rtEvtFlw.evtFlwee) == 0 {
+		return nil, err
+	}
+	return rtEvtFlw, err
 }

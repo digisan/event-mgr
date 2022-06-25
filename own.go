@@ -26,21 +26,19 @@ func (own Own) String() string {
 	return sb.String()
 }
 
-func (own *Own) Marshal() (forkey, forValue []byte) {
+func (own *Own) Marshal() (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(own.OwnerYMSpan) == 0, "%v", errors.New("empty owner"))
-	forkey = []byte(own.OwnerYMSpan)
+	forKey = []byte(own.OwnerYMSpan)
 	forValue = []byte(fmt.Sprint(own.EventIDs))
 	return
 }
 
 func (own *Own) Unmarshal(dbKey, dbVal []byte) error {
 	own.OwnerYMSpan = string(dbKey)
-
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
-	own.EventIDs = append(own.EventIDs, strings.Split(dbValStr, " ")...)
-
+	own.EventIDs = strings.Split(dbValStr, " ")
 	return nil
 }
 
@@ -68,7 +66,7 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	keys, err := GetOwnKeysDB(owner, yyyymm)
+	keys, err := GetOwnSpanKeysDB(owner, yyyymm)
 	if err != nil {
 		return nil, err
 	}
