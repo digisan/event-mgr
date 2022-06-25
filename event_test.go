@@ -44,7 +44,7 @@ func TestAddEvent(t *testing.T) {
 					//
 					// Get *** Event ***
 					//
-					evt := NewEvent("", "uname", "eType", "metajson")
+					evt := NewEvent("", "uname", "eType", "rawjson")
 
 					//
 					// TEST *** reading when writing ***
@@ -97,7 +97,7 @@ func TestAddEventV2(t *testing.T) {
 
 	for i := 0; i < N; i++ {
 		go func() {
-			evt := NewEvent("", "uname", "eType", "metajson")
+			evt := NewEvent("", "uname", "eType", "rawjson")
 			lk.FailOnErr("%v", AddEvent(evt))
 			atomic.AddUint64(&n, 1)
 			wg.Done()
@@ -339,4 +339,13 @@ func TestFollowDB(t *testing.T) {
 	fmt.Println("-------------")
 
 	fmt.Println(GetFlwDB("0"))
+}
+
+func TestGetFollowers(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	fids, err := GetFollowers("000")
+	fmt.Println(fids, err)
 }

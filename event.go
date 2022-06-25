@@ -21,13 +21,13 @@ type Event struct {
 	Tm        time.Time
 	Owner     string
 	EvtType   string
-	MetaJSON  string
+	RawJSON   string
 	Public    bool
 	fnDbStore func(*Event) error
 }
 
 // if [id] is empty, a new one will be assigned to event.
-func NewEvent(id, owner, evtType, meta string) *Event {
+func NewEvent(id, owner, evtType, raw string) *Event {
 	if len(id) == 0 {
 		id = uuid.NewString()
 	}
@@ -36,7 +36,7 @@ func NewEvent(id, owner, evtType, meta string) *Event {
 		Tm:        time.Now().Truncate(time.Second),
 		Owner:     owner,
 		EvtType:   evtType,
-		MetaJSON:  meta,
+		RawJSON:   raw,
 		Public:    false,
 		fnDbStore: SaveEvtDB,
 	}
@@ -75,18 +75,18 @@ const (
 	MOV_Tm int = iota
 	MOV_Owner
 	MOV_EvtType
-	MOV_MetaJSON
+	MOV_RawJSON
 	MOV_Pub
 	MOV_N
 )
 
 func (evt *Event) ValFieldAddr(mov int) any {
 	mFldAddr := map[int]any{
-		MOV_Tm:       &evt.Tm,
-		MOV_Owner:    &evt.Owner,
-		MOV_EvtType:  &evt.EvtType,
-		MOV_MetaJSON: &evt.MetaJSON,
-		MOV_Pub:      &evt.Public,
+		MOV_Tm:      &evt.Tm,
+		MOV_Owner:   &evt.Owner,
+		MOV_EvtType: &evt.EvtType,
+		MOV_RawJSON: &evt.RawJSON,
+		MOV_Pub:     &evt.Public,
 	}
 	return mFldAddr[mov]
 }

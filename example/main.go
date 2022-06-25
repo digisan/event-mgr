@@ -37,7 +37,7 @@ func main() {
 				//
 				// Get *** Event ***
 				//
-				evt := em.NewEvent("", "uname", "eType", "metajson")
+				evt := em.NewEvent("", "uname", "eType", "rawjson")
 
 				/////////////////////////////////
 

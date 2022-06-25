@@ -85,3 +85,14 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 	}
 	return nil
 }
+
+func GetFollowers(flwee string) ([]string, error) {
+	ef, err := GetFlwDB(flwee)
+	if err != nil {
+		return nil, err
+	}
+	if ef == nil {
+		return []string{}, nil
+	}
+	return ef.evtFlwers, nil
+}
