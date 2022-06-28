@@ -26,7 +26,7 @@ func NewEventFollow(followee string) *EventFollow {
 func (ef EventFollow) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("followee: " + ef.evtFlwee + "\n")
-	sb.WriteString("follower: ")
+	sb.WriteString("follower:")
 	for _, f := range ef.evtFlwers {
 		sb.WriteString("\n  " + f)
 	}
@@ -38,8 +38,8 @@ func (ef *EventFollow) Key() []byte {
 }
 
 func (ef *EventFollow) Marshal() (forKey, forValue []byte) {
-	lk.FailOnErrWhen(len(ef.Key()) == 0, "%v", errors.New("empty followee"))
-	forKey = []byte(ef.evtFlwee)
+	forKey = ef.Key()
+	lk.FailOnErrWhen(len(forKey) == 0, "%v", errors.New("empty followee"))
 	forValue = []byte(fmt.Sprint(ef.evtFlwers))
 	return
 }
@@ -64,9 +64,7 @@ func (ef *EventFollow) OnDbStore(dbStore func(*EventFollow) error) {
 func (ef *EventFollow) AddFollower(followers ...string) error {
 	ef.evtFlwers = append(ef.evtFlwers, followers...)
 	ef.evtFlwers = Settify(ef.evtFlwers...)
-	if ef.fnDbStore == nil {
-		return errors.New("EventFollow [fnDbStore] is nil")
-	}
+	lk.FailOnErrWhen(ef.fnDbStore == nil, "%v", errors.New("EventFollow [fnDbStore] is nil"))
 	if err := ef.fnDbStore(ef); err != nil {
 		return err
 	}
@@ -77,9 +75,7 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 	FilterFast(&ef.evtFlwers, func(i int, e string) bool {
 		return NotIn(e, followers...)
 	})
-	if ef.fnDbStore == nil {
-		return errors.New("EventFollow [fnDbStore] is nil")
-	}
+	lk.FailOnErrWhen(ef.fnDbStore == nil, "%v", errors.New("EventFollow [fnDbStore] is nil"))
 	if err := ef.fnDbStore(ef); err != nil {
 		return err
 	}

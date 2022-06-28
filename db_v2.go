@@ -18,6 +18,7 @@ type PtrDbAccessible[T any] interface {
 	*T
 }
 
+// one object with fixed key
 func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 	var (
 		rt  = T(new(V))
@@ -44,13 +45,16 @@ func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 	return rt, err
 }
 
+// all objects
 // func GetAllObjectsDB[V any, T PtrDbAccessible[V]]() ([]T, error) {
 // }
 
+// some objects with a key prefix
 // func GetObjectsDB[V any, T PtrDbAccessible[V]](prefix []byte) ([]T, error) {
 // 	rt := []T{}
 // }
 
+// one object
 func SaveOneObjectDB[V any, T PtrDbAccessible[V]](object T) error {
 	return object.BadgerDB().Update(func(txn *badger.Txn) error {
 		return txn.Set(object.Marshal())

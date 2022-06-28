@@ -2,6 +2,7 @@ package eventmgr
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -135,9 +136,8 @@ func AddEvent(evt *Event) error {
 
 	dbKey := NowSpan()
 
-	if evt.fnDbStore == nil {
-		return fmt.Errorf("Event [OnDbStore] must be done before AddEvent")
-	}
+	lk.FailOnErrWhen(evt.fnDbStore == nil, "%v", errors.New("Event [OnDbStore] is nil"))
+
 	if err := evt.fnDbStore(evt); err != nil {
 		return err
 	}

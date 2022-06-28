@@ -349,3 +349,38 @@ func TestGetFollowers(t *testing.T) {
 	fids, err := GetFollowers("000")
 	fmt.Println(fids, err)
 }
+
+func TestParticipate(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	ep := NewEventParticipate("001", "thumb")
+	ep.OnDbStore(SaveOneObjectDB[EventParticipate])
+
+	err := ep.AddPtps("a", "b", "c")
+	if err == nil {
+		fmt.Println(ep)
+	} else {
+		fmt.Println(err)
+	}
+
+	fmt.Println("-------------")
+
+	fmt.Println(GetParticipants("001", "thumb"))
+
+}
+
+func TestGetParticipants(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	ep, _ := GetParticipate("001", "thumb")
+	ep.OnDbStore(SaveOneObjectDB[EventParticipate])
+	ep.RmPtps("b", "c")
+
+	ptps, err := GetParticipants("001", "thumb")
+	fmt.Println(ptps, err)
+
+}

@@ -19,6 +19,7 @@ type EDB struct {
 	dbIDEvt    *badger.DB
 	dbOwnerIDs *badger.DB
 	dbIDFlwIDs *badger.DB
+	dbIDPtps   *badger.DB
 }
 
 var eDB *EDB // global, for keeping single instance
@@ -42,6 +43,7 @@ func InitDB(dir string) *EDB {
 				dbIDEvt:    open(filepath.Join(dir, "id-event")),
 				dbOwnerIDs: open(filepath.Join(dir, "owner-ids")),
 				dbIDFlwIDs: open(filepath.Join(dir, "id-flwids")),
+				dbIDPtps:   open(filepath.Join(dir, "id-ptps")),
 			}
 		})
 	}
@@ -67,6 +69,10 @@ func CloseDB() {
 	if eDB.dbIDFlwIDs != nil {
 		lk.FailOnErr("%v", eDB.dbIDFlwIDs.Close())
 		eDB.dbIDFlwIDs = nil
+	}
+	if eDB.dbIDPtps != nil {
+		lk.FailOnErr("%v", eDB.dbIDPtps.Close())
+		eDB.dbIDPtps = nil
 	}
 }
 
