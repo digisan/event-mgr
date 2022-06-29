@@ -356,7 +356,7 @@ func TestParticipate(t *testing.T) {
 	defer CloseDB()
 
 	ep := NewEventParticipate("001", "thumb")
-	ep.OnDbStore(SaveOneObjectDB[EventParticipate])
+	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
 
 	err := ep.AddPtps("a", "b", "c")
 	if err == nil {
@@ -377,7 +377,7 @@ func TestGetParticipants(t *testing.T) {
 	defer CloseDB()
 
 	ep, _ := GetParticipate("001", "thumb")
-	ep.OnDbStore(SaveOneObjectDB[EventParticipate])
+	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
 	ep.RmPtps("b", "c")
 
 	ptps, err := GetParticipants("001", "thumb")

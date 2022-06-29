@@ -13,14 +13,38 @@ func TestGetObjectDB(t *testing.T) {
 	// flw := NewEventFollow("000")
 	// flw.OnDbStore(SaveFlwDB) // for add/remove etc
 
-	flw := NewEventFollow("001")
+	flw := NewEventFollow("400")
+	flw.OnDbStore(SaveFlwDB)
+
 	flw.AddFollower("1", "2")
-	flw.RmFollower("1")
+	flw.RmFollower("2")
 	fmt.Println(flw)
 
-	fmt.Println(SaveOneObjectDB(flw))
+	fmt.Println(UpsertOneObjectDB(flw))
 
 	fmt.Println("-----")
 
-	fmt.Println(GetOneObjectDB[EventFollow]([]byte("001")))
+	ef, err := GetOneObjectDB[EventFollow]([]byte("400"))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(ef)
+
+	fmt.Println(DeleteOneObjectDB[EventFollow]([]byte("400")))
+}
+
+func TestGetAllObjectsDB(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
+	evtflws, err := GetObjectsDB[EventFollow]([]byte("1"))
+	if err != nil {
+		panic(err)
+	}
+	for _, evtflw := range evtflws {
+		fmt.Println(evtflw)
+		fmt.Println("-----")
+	}
+
 }
