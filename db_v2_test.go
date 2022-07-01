@@ -14,7 +14,7 @@ func TestGetObjectDB(t *testing.T) {
 	// flw.OnDbStore(SaveFlwDB) // for add/remove etc
 
 	flw := NewEventFollow("400")
-	flw.OnDbStore(SaveFlwDB)
+	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
 
 	flw.AddFollower("1", "2")
 	flw.RmFollower("2")
@@ -38,7 +38,7 @@ func TestGetAllObjectsDB(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	evtflws, err := GetObjectsDB[EventFollow]([]byte("1"))
+	evtflws, err := GetObjectsDB[EventFollow]([]byte("400"))
 	if err != nil {
 		panic(err)
 	}

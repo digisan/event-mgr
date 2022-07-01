@@ -143,12 +143,12 @@ func TestGetEvtIdRangeDB(t *testing.T) {
 
 	// fmt.Println(NowSpan())
 
-	ids, err := GetEvtIdRangeDB("27561528")
+	ids, err := GetEvtIdRangeDB("27610900")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(ids)
+	fmt.Println(len(ids))
 }
 
 func TestGetSpanAllDB(t *testing.T) {
@@ -181,7 +181,7 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByTm("40m")
+	ids, err := FetchEvtIDsByTm("9m")
 	if err != nil {
 		panic(err)
 	}
@@ -219,21 +219,21 @@ func TestGetEvt(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	id := "03dd1fc3-1abe-45c9-89a3-aa806f10c5d6"
+	id := "50277fda-7cc4-4c16-8ddc-f8657d75510d"
 
-	evt, err := GetEvtDB(id)
+	evt, err := GetOneObjectDB[Event]([]byte(id))
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("---------------\n%v---------------\n", evt)
 
-	evt.OnDbStore(SaveEvtDB)
+	evt.OnDbStore(UpsertOneObjectDB[Event])
 
 	if err := evt.Publish(true); err != nil { // make this event public
 		panic(err)
 	}
 
-	evt, err = GetEvtDB(id)
+	evt, err = GetOneObjectDB[Event]([]byte(id))
 	if err != nil {
 		panic(err)
 	}
@@ -253,36 +253,14 @@ func TestMarshal(t *testing.T) {
 
 	fmt.Println(evt)
 
-	key, val := evt.Marshal()
-
 	evt1 := &Event{}
-	evt1.Unmarshal(key, val)
+	evt1.Unmarshal(evt.Marshal())
 
 	fmt.Println("equal", evt == evt1)
 	fmt.Println("deep equal", reflect.DeepEqual(evt, evt1))
 	fmt.Println()
 
 	fmt.Println(evt1)
-}
-
-func TestGetOwnKeysDB(t *testing.T) {
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	InitDB("./data")
-	defer CloseDB()
-
-	InitEventSpan("MINUTE", ctx)
-
-	keys, err := GetOwnSpanKeysDB("uname", "202206")
-	if err != nil {
-		panic(err)
-	}
-
-	for _, key := range keys {
-		fmt.Println("--->", key)
-	}
 }
 
 func TestFetchOwn(t *testing.T) {
@@ -295,7 +273,7 @@ func TestFetchOwn(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchOwn("uname", "202206")
+	ids, err := FetchOwn("uname", "202207")
 	lk.WarnOnErr("%v", err)
 
 	fmt.Println("----->", len(ids))
@@ -308,16 +286,21 @@ func TestFetchOwn(t *testing.T) {
 }
 
 func TestFollow(t *testing.T) {
+
+	InitDB("./data")
+	defer CloseDB()
+
 	flw := NewEventFollow("000")
+	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
+
 	flw.AddFollower("1", "2")
 	fmt.Println(flw)
 
 	flw.RmFollower("2", "3")
 	fmt.Println(flw)
 
-	key, val := flw.Marshal()
 	flw1 := NewEventFollow("")
-	flw1.Unmarshal(key, val)
+	flw1.Unmarshal(flw.Marshal())
 	fmt.Println(flw1)
 }
 
@@ -326,10 +309,10 @@ func TestFollowDB(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	flw := NewEventFollow("000")
-	flw.OnDbStore(SaveFlwDB)
+	flw := NewEventFollow("00")
+	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
 
-	err := flw.AddFollower("1", "2")
+	err := flw.AddFollower("1", "2", "3")
 	if err == nil {
 		fmt.Println(flw)
 	} else {
@@ -338,7 +321,7 @@ func TestFollowDB(t *testing.T) {
 
 	fmt.Println("-------------")
 
-	fmt.Println(GetFlwDB("0"))
+	fmt.Println(GetOneObjectDB[EventFollow]([]byte("00")))
 }
 
 func TestGetFollowers(t *testing.T) {
@@ -346,7 +329,7 @@ func TestGetFollowers(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	fids, err := GetFollowers("000")
+	fids, err := GetFollowers("00")
 	fmt.Println(fids, err)
 }
 
@@ -358,7 +341,7 @@ func TestParticipate(t *testing.T) {
 	ep := NewEventParticipate("001", "thumb")
 	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
 
-	err := ep.AddPtps("a", "b", "c")
+	err := ep.AddPtps("A", "a", "b", "c")
 	if err == nil {
 		fmt.Println(ep)
 	} else {
@@ -378,7 +361,7 @@ func TestGetParticipants(t *testing.T) {
 
 	ep, _ := GetParticipate("001", "thumb")
 	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
-	ep.RmPtps("b", "c")
+	ep.RmPtps("b", "c", "d")
 
 	ptps, err := GetParticipants("001", "thumb")
 	fmt.Println(ptps, err)

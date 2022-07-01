@@ -1,7 +1,6 @@
 package eventmgr
 
 import (
-	"bytes"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -11,7 +10,10 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
-var onceEDB sync.Once
+var (
+	onceEDB sync.Once // do once
+	eDB     *EDB      // global, for keeping single instance
+)
 
 type EDB struct {
 	sync.Mutex
@@ -21,8 +23,6 @@ type EDB struct {
 	dbIDFlwIDs *badger.DB
 	dbIDPtps   *badger.DB
 }
-
-var eDB *EDB // global, for keeping single instance
 
 func open(dir string) *badger.DB {
 	opt := badger.DefaultOptions("").WithInMemory(true)
@@ -77,81 +77,6 @@ func CloseDB() {
 }
 
 /////////////////////////////////////////////////////////////////////////
-
-// only for update private using
-// func (db *EDB) rmEventBlock(es *EventSpan, lock bool) error {
-// 	if lock {
-// 		db.Lock()
-// 		defer db.Unlock()
-// 	}
-
-// 	ids, _ := es.MarshalIDsSpan()
-// 	for _, id := range ids {
-// 		if err := db.dbID.Update(func(txn *badger.Txn) error {
-// 			it := txn.NewIterator(badger.DefaultIteratorOptions)
-// 			defer it.Close()
-// 			if it.Seek([]byte(id)); it.Valid() {
-// 				if err := txn.Delete(it.Item().KeyCopy(nil)); err != nil {
-// 					lk.WarnOnErr("%v", err)
-// 					return err
-// 				}
-// 			}
-// 			return nil
-// 		}); err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	return db.dbTmSpan.Update(func(txn *badger.Txn) error {
-// 		it := txn.NewIterator(badger.DefaultIteratorOptions)
-// 		defer it.Close()
-
-// 		if it.Seek([]byte(es.prevSpan)); it.Valid() {
-// 			if err := txn.Delete(it.Item().KeyCopy(nil)); err != nil {
-// 				lk.WarnOnErr("%v", err)
-// 				return err
-// 			}
-// 		}
-// 		return nil
-// 	})
-// }
-
-func SaveEvtDB(evt *Event) error {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	return eDB.dbIDEvt.Update(func(txn *badger.Txn) error {
-		return txn.Set(evt.Marshal())
-	})
-}
-
-func GetEvtDB(id string) (*Event, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	evt := &Event{}
-	err := eDB.dbIDEvt.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		bytesKey := []byte(id)
-		if it.Seek(bytesKey); it.Valid() {
-			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
-				if err := item.Value(func(val []byte) error {
-					return evt.Unmarshal(item.Key(), val)
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-	if len(evt.ID) == 0 {
-		return nil, err
-	}
-	return evt, err
-}
 
 func SaveEvtSpanDB(span string) error {
 	eDB.Lock()
@@ -234,117 +159,4 @@ func GetEvtIdRangeDB(ts string) ([]string, error) {
 		}
 		return nil
 	})
-}
-
-func SaveOwnDB(own *Own) error {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	return eDB.dbOwnerIDs.Update(func(txn *badger.Txn) error {
-		return txn.Set(own.Marshal())
-	})
-}
-
-func GetOwnDB(ownerYMSpan string) (*Own, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	rtOwn := &Own{}
-	err := eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		bytesKey := []byte(ownerYMSpan)
-		if it.Seek(bytesKey); it.Valid() {
-			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
-				if err := item.Value(func(val []byte) error {
-					return rtOwn.Unmarshal(item.Key(), val)
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-	if len(rtOwn.OwnerYMSpan) == 0 {
-		return nil, err
-	}
-	return rtOwn, err
-
-	// return rtOwn, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
-	// 	opts := badger.DefaultIteratorOptions
-	// 	it := txn.NewIterator(opts)
-	// 	defer it.Close()
-
-	// 	prefix := []byte(owner + "@" + yyyymm + "-")
-	// 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-	// 		one := &Own{}
-	// 		item := it.Item()
-	// 		if err := item.Value(func(val []byte) error {
-	// 			return one.Unmarshal(item.Key(), val)
-	// 		}); err != nil {
-	// 			return err
-	// 		}
-	// 		// join each one.EventIDs
-	// 		rtOwn.EventIDs = append(rtOwn.EventIDs, one.EventIDs...)
-	// 	}
-	// 	return nil
-	// })
-}
-
-func GetOwnSpanKeysDB(owner, yyyymm string) ([]string, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	rtSpans := []string{}
-
-	return rtSpans, eDB.dbOwnerIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		prefix := []byte(owner + "@" + yyyymm + "-")
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			rtSpans = append(rtSpans, string(it.Item().Key()))
-		}
-		return nil
-	})
-}
-
-func SaveFlwDB(ef *EventFollow) error {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	return eDB.dbIDFlwIDs.Update(func(txn *badger.Txn) error {
-		return txn.Set(ef.Marshal())
-	})
-}
-
-func GetFlwDB(FlweeID string) (*EventFollow, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	rtEvtFlw := &EventFollow{}
-	err := eDB.dbIDFlwIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		bytesKey := []byte(FlweeID)
-		if it.Seek(bytesKey); it.Valid() {
-			if item := it.Item(); bytes.Equal(bytesKey, item.Key()) {
-				if err := item.Value(func(val []byte) error {
-					return rtEvtFlw.Unmarshal(item.Key(), val)
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-	if len(rtEvtFlw.evtFlwee) == 0 {
-		return nil, err
-	}
-	return rtEvtFlw, err
 }

@@ -14,6 +14,12 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
+var (
+	onceES      sync.Once
+	es          *EventSpan = nil
+	curSpanType            = "MINUTE"
+)
+
 type TempEvt struct {
 	owner  string // uname
 	yyyymm string // "202208"
@@ -38,12 +44,6 @@ var mSpanType = map[string]int64{
 	"TWO_MINUTE":   2,
 	"MINUTE":       1,
 }
-
-var (
-	onceES      sync.Once
-	es          *EventSpan = nil
-	curSpanType            = "MINUTE"
-)
 
 func SetSpanType(spanType string) error {
 	if _, ok := mSpanType[spanType]; !ok {
@@ -162,7 +162,7 @@ func flush(span string) error {
 
 	lk.Log("before flushing ------> span: %s -- id count: %d", span, len(es.mSpanCache[span]))
 
-	// update owner - eventIDs storage
+	// update [owner] - eventIDs storage
 	if err := updateOwn(span, es.mSpanCache[span]...); err != nil {
 		return err
 	}

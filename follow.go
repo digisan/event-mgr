@@ -83,7 +83,7 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 }
 
 func GetFollowers(flwee string) ([]string, error) {
-	ef, err := GetFlwDB(flwee)
+	ef, err := GetOneObjectDB[EventFollow]([]byte(flwee))
 	if err != nil {
 		return nil, err
 	}

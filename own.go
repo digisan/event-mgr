@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/dgraph-io/badger/v3"
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
@@ -26,9 +27,17 @@ func (own Own) String() string {
 	return sb.String()
 }
 
+func (own *Own) BadgerDB() *badger.DB {
+	return eDB.dbOwnerIDs
+}
+
+func (own *Own) Key() []byte {
+	return []byte(own.OwnerYMSpan)
+}
+
 func (own *Own) Marshal() (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(own.OwnerYMSpan) == 0, "%v", errors.New("empty owner"))
-	forKey = []byte(own.OwnerYMSpan)
+	forKey = own.Key()
 	forValue = []byte(fmt.Sprint(own.EventIDs))
 	return
 }
@@ -56,7 +65,7 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 		own := &Own{
 			OwnerYMSpan: owner,
 			EventIDs:    ids,
-			fnDbStore:   SaveOwnDB,
+			fnDbStore:   UpsertOneObjectDB[Own],
 		}
 		if err := own.fnDbStore(own); err != nil {
 			return err
@@ -66,14 +75,17 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	keys, err := GetOwnSpanKeysDB(owner, yyyymm)
+	objects, err := GetObjectsDB[Own]([]byte(owner + "@" + yyyymm + "-"))
 	if err != nil {
 		return nil, err
 	}
+	keys := FilterMap(objects, nil, func(i int, e *Own) string {
+		return e.OwnerYMSpan
+	})
 
 	rtIds := []string{}
 	for _, key := range keys {
-		own, err := GetOwnDB(key)
+		own, err := GetOneObjectDB[Own]([]byte(key))
 		if err != nil {
 			return nil, err
 		}

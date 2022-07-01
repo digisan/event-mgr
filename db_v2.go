@@ -98,6 +98,18 @@ func UpsertOneObjectDB[V any, T PtrDbAccessible[V]](object T) error {
 	})
 }
 
+func UpsertObjectsDB[V any, T PtrDbAccessible[V]](objects ...T) error {
+	wb := T(new(V)).BadgerDB().NewWriteBatch()
+	defer wb.Cancel()
+
+	for _, object := range objects {
+		if err := wb.Set(object.Marshal()); err != nil {
+			return err
+		}
+	}
+	return wb.Flush()
+}
+
 // delete one object
 func DeleteOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) error {
 	return T(new(V)).BadgerDB().Update(func(txn *badger.Txn) error {
