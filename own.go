@@ -35,7 +35,7 @@ func (own *Own) Key() []byte {
 	return []byte(own.OwnerYMSpan)
 }
 
-func (own *Own) Marshal() (forKey, forValue []byte) {
+func (own *Own) Marshal(at any) (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(own.OwnerYMSpan) == 0, "%v", errors.New("empty owner"))
 	forKey = own.Key()
 	forValue = []byte(fmt.Sprint(own.EventIDs))

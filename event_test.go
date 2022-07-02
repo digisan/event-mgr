@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	// . "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
 
@@ -78,7 +79,7 @@ func TestAddEvent(t *testing.T) {
 	fmt.Println("------> total:", n)
 }
 
-// wait for a moment to span changed, then running 'V2'
+// wait for a moment (as per 'InitEventSpan') to span changed, then running 'V2' again.
 
 func TestAddEventV2(t *testing.T) {
 
@@ -113,7 +114,7 @@ func TestAddEventV2(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
-func TestGetAllEvtIds(t *testing.T) {
+func TestFetchAllSpans(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -123,7 +124,26 @@ func TestGetAllEvtIds(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchAllEvtIDs() // GetEvtIdAllDB()
+	spans, err := FetchAllSpans()
+	if err != nil {
+		panic(err)
+	}
+	for _, span := range spans {
+		fmt.Println(span)
+	}
+}
+
+func TestFetchAllEvtIds(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitDB("./data")
+	defer CloseDB()
+
+	InitEventSpan("MINUTE", ctx)
+
+	ids, err := FetchAllEvtIDs()
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +151,7 @@ func TestGetAllEvtIds(t *testing.T) {
 	fmt.Println("------> total:", len(ids))
 }
 
-func TestGetEvtIdRangeDB(t *testing.T) {
+func TestFetchEventIDsByTime(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -141,47 +161,7 @@ func TestGetEvtIdRangeDB(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	// fmt.Println(NowSpan())
-
-	ids, err := GetEvtIdRangeDB("27610900")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(len(ids))
-}
-
-func TestGetSpanAllDB(t *testing.T) {
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	InitDB("./data")
-	defer CloseDB()
-
-	InitEventSpan("MINUTE", ctx)
-
-	spans, err := GetSpanAllDB()
-	if err != nil {
-		panic(err)
-	}
-
-	for _, span := range spans {
-		fmt.Println("--->", span)
-	}
-}
-
-func TestFetchSpanIDsByTime(t *testing.T) {
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	InitDB("./data")
-	defer CloseDB()
-
-	InitEventSpan("MINUTE", ctx)
-
-	ids, err := FetchEvtIDsByTm("9m")
+	ids, err := FetchEvtIDsByTm("90m")
 	if err != nil {
 		panic(err)
 	}
@@ -190,7 +170,7 @@ func TestFetchSpanIDsByTime(t *testing.T) {
 	}
 }
 
-func TestFetchSpanIDsByCnt(t *testing.T) {
+func TestFetchEventIDsByCnt(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -254,7 +234,7 @@ func TestMarshal(t *testing.T) {
 	fmt.Println(evt)
 
 	evt1 := &Event{}
-	evt1.Unmarshal(evt.Marshal())
+	evt1.Unmarshal(evt.Marshal(nil))
 
 	fmt.Println("equal", evt == evt1)
 	fmt.Println("deep equal", reflect.DeepEqual(evt, evt1))
@@ -300,7 +280,7 @@ func TestFollow(t *testing.T) {
 	fmt.Println(flw)
 
 	flw1 := NewEventFollow("")
-	flw1.Unmarshal(flw.Marshal())
+	flw1.Unmarshal(flw.Marshal(nil))
 	fmt.Println(flw1)
 }
 

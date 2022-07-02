@@ -2,11 +2,9 @@ package eventmgr
 
 import (
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
-	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
 
@@ -28,6 +26,7 @@ func open(dir string) *badger.DB {
 	opt := badger.DefaultOptions("").WithInMemory(true)
 	if dir != "" {
 		opt = badger.DefaultOptions(dir)
+		opt.Logger = nil
 	}
 	db, err := badger.Open(opt)
 	lk.FailOnErr("%v", err)
@@ -74,89 +73,4 @@ func CloseDB() {
 		lk.FailOnErr("%v", eDB.dbIDPtps.Close())
 		eDB.dbIDPtps = nil
 	}
-}
-
-/////////////////////////////////////////////////////////////////////////
-
-func SaveEvtSpanDB(span string) error {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	return eDB.dbSpanIDs.Update(func(txn *badger.Txn) error {
-		return txn.Set(MarshalAt(span))
-	})
-}
-
-func GetSpanAllDB() ([]string, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	spans := []string{}
-	return spans, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchValues = false
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			spans = append(spans, string(item.Key()))
-		}
-		return nil
-	})
-}
-
-func GetEvtIdAllDB() ([]string, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	var idsGrp [][]string
-	err := eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchValues = false
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			if err := item.Value(func(v []byte) error {
-				if sv := string(v); len(sv) > 0 {
-					idsGrp = append(idsGrp, strings.Split(sv, SEP))
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return MergeArray(idsGrp...), err
-}
-
-func GetEvtIdRangeDB(ts string) ([]string, error) {
-	eDB.Lock()
-	defer eDB.Unlock()
-
-	var ids []string
-
-	return ids, eDB.dbSpanIDs.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchValues = false
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		prefix := []byte(ts)
-		if it.Seek(prefix); it.ValidForPrefix(prefix) {
-			item := it.Item()
-			if err := item.Value(func(v []byte) error {
-				if sv := string(v); len(sv) > 0 {
-					ids = strings.Split(sv, SEP)
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }

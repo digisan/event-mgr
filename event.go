@@ -102,7 +102,7 @@ func (evt *Event) Key() []byte {
 	return []byte(evt.ID)
 }
 
-func (evt *Event) Marshal() (forKey, forValue []byte) {
+func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 	lk.FailOnErrWhen(len(evt.ID) == 0, "%v", errors.New("empty event id"))
 
 	forKey = evt.Key()

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v3"
 	. "github.com/digisan/go-generics/v2"
 	"github.com/digisan/gotk/misc"
 	"github.com/digisan/gotk/strs"
@@ -30,6 +31,36 @@ type TempEvt struct {
 type EventSpan struct {
 	mtx        *sync.Mutex
 	mSpanCache map[string][]TempEvt // key: "27582250-1"
+}
+
+func (es *EventSpan) BadgerDB() *badger.DB {
+	return eDB.dbSpanIDs
+}
+
+func (es *EventSpan) Key() []byte {
+	panic("JUST PLACE HOLDER, DO NOT INVOKE")
+	return []byte("EventSpan")
+}
+
+func (es *EventSpan) Marshal(at any) (forKey, forValue []byte) {
+	span := at.(string)
+	forKey = []byte(span)
+	cache := es.mSpanCache[span]
+	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
+	forValue = []byte(strings.Join(ids, SEP))
+	return
+}
+
+func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) error {
+	if es.mSpanCache == nil {
+		es.mSpanCache = make(map[string][]TempEvt)
+	}
+	for _, id := range strings.Split(string(dbVal), SEP) {
+		es.mSpanCache[string(dbKey)] = append(es.mSpanCache[string(dbKey)], TempEvt{
+			evtId: id,
+		})
+	}
+	return nil
 }
 
 var mSpanType = map[string]int64{
@@ -122,9 +153,9 @@ func (es EventSpan) String() string {
 	for span, cache := range es.mSpanCache {
 		sb.WriteString(span + ": \n")
 		for idx, tEvt := range cache {
-			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.owner))
-			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.yyyymm))
-			sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", idx, tEvt.evtId))
+			sb.WriteString(fmt.Sprintf("\t%04d\t%s\n", idx, tEvt.evtId))
+			// sb.WriteString(fmt.Sprintf("\t\t%s\n", tEvt.owner))
+			// sb.WriteString(fmt.Sprintf("\t\t%s\n", tEvt.yyyymm))
 		}
 	}
 	return sb.String()
@@ -168,7 +199,7 @@ func flush(span string) error {
 	}
 
 	// store a batch of span event IDs
-	if err := SaveEvtSpanDB(span); err != nil { // store mSpanRefIDs at 'prevSpan'
+	if err := UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
 	delete(es.mSpanCache, span)
@@ -176,23 +207,36 @@ func flush(span string) error {
 	return nil
 }
 
-func MarshalAt(span string) (forKey, forValue []byte) {
-	forKey = []byte(span)
-	cache := es.mSpanCache[span]
-	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
-	forValue = []byte(strings.Join(ids, SEP))
-	return
-}
-
 func CurrIDs() []string {
 	cache := es.mSpanCache[NowSpan()]
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 }
 
-func FetchAllEvtIDs() (ids []string, err error) {
-	idsDB, err := GetEvtIdAllDB()
+func FetchAllSpans() (spans []string, err error) {
+	es, err := GetObjectsDB[EventSpan](nil)
 	if err != nil {
 		return nil, err
+	}
+	for _, span := range es {
+		for k := range span.mSpanCache {
+			spans = append(spans, k)
+		}
+	}
+	return spans, nil
+}
+
+func FetchAllEvtIDs() (ids []string, err error) {
+	es, err := GetObjectsDB[EventSpan](nil)
+	if err != nil {
+		return nil, err
+	}
+	idsDB := []string{}
+	for _, span := range es {
+		for _, evts := range span.mSpanCache {
+			for _, evt := range evts {
+				idsDB = append(idsDB, evt.evtId)
+			}
+		}
 	}
 	return append(Reverse(CurrIDs()), idsDB...), nil
 }
@@ -211,12 +255,18 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		idsEach, err := GetEvtIdRangeDB(ts)
+		es, err := GetObjectsDB[EventSpan]([]byte(ts))
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
 		}
-		ids = append(ids, idsEach...)
+		for _, span := range es {
+			for _, evts := range span.mSpanCache {
+				for _, evt := range evts {
+					ids = append(ids, evt.evtId)
+				}
+			}
+		}
 	}
 	return
 }

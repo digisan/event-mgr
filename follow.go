@@ -37,7 +37,7 @@ func (ef *EventFollow) Key() []byte {
 	return []byte(ef.evtFlwee)
 }
 
-func (ef *EventFollow) Marshal() (forKey, forValue []byte) {
+func (ef *EventFollow) Marshal(at any) (forKey, forValue []byte) {
 	forKey = ef.Key()
 	lk.FailOnErrWhen(len(forKey) == 0, "%v", errors.New("empty followee"))
 	forValue = []byte(fmt.Sprint(ef.evtFlwers))

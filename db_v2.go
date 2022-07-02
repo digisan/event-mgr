@@ -8,7 +8,7 @@ import (
 
 type DbAccessible interface {
 	Key() []byte
-	Marshal() (forKey []byte, forValue []byte)
+	Marshal(at any) (forKey []byte, forValue []byte)
 	Unmarshal(dbKey []byte, dbVal []byte) error
 	BadgerDB() *badger.DB
 }
@@ -94,16 +94,24 @@ func GetObjectsDB[V any, T PtrDbAccessible[V]](prefix []byte) ([]T, error) {
 // update or insert one object
 func UpsertOneObjectDB[V any, T PtrDbAccessible[V]](object T) error {
 	return object.BadgerDB().Update(func(txn *badger.Txn) error {
-		return txn.Set(object.Marshal())
+		return txn.Set(object.Marshal(nil))
 	})
 }
 
+// update or insert part object at specific area
+func UpsertPartObjectDB[V any, T PtrDbAccessible[V]](object T, at any) error {
+	return object.BadgerDB().Update(func(txn *badger.Txn) error {
+		return txn.Set(object.Marshal(at))
+	})
+}
+
+// update or insert many objects
 func UpsertObjectsDB[V any, T PtrDbAccessible[V]](objects ...T) error {
 	wb := T(new(V)).BadgerDB().NewWriteBatch()
 	defer wb.Cancel()
 
 	for _, object := range objects {
-		if err := wb.Set(object.Marshal()); err != nil {
+		if err := wb.Set(object.Marshal(nil)); err != nil {
 			return err
 		}
 	}
@@ -122,7 +130,6 @@ func DeleteOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) error {
 				return txn.Delete(item.KeyCopy(nil))
 			}
 		}
-
 		return nil
 	})
 }

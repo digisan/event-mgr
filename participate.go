@@ -12,7 +12,7 @@ import (
 
 const (
 	SEP_K = "^"
-	SPE_V = "^"
+	SEP_V = "^"
 )
 
 type EventParticipate struct {
@@ -47,7 +47,7 @@ func (ep *EventParticipate) Key() []byte {
 	return []byte(fmt.Sprintf("%s%s%s", ep.pType, SEP_K, ep.evtId))
 }
 
-func (ep *EventParticipate) Marshal() (forKey, forValue []byte) {
+func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
 	forKey = ep.Key()
 	lk.FailOnErrWhen(len(forKey) == 0, "%v", errors.New("empty event for participants"))
 	forValue = []byte(fmt.Sprint(ep.ptps))
