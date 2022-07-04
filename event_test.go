@@ -114,7 +114,7 @@ func TestAddEventV2(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
-func TestFetchAllSpans(t *testing.T) {
+func TestFetchSpans(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -124,7 +124,7 @@ func TestFetchAllSpans(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	spans, err := FetchAllSpans()
+	spans, err := FetchSpans([]byte("")) // 'nil' is for fetching all
 	if err != nil {
 		panic(err)
 	}
@@ -133,7 +133,7 @@ func TestFetchAllSpans(t *testing.T) {
 	}
 }
 
-func TestFetchAllEvtIds(t *testing.T) {
+func TestFetchEvtIds(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -143,7 +143,7 @@ func TestFetchAllEvtIds(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchAllEvtIDs()
+	ids, err := FetchEvtIDs([]byte("27615")) // 'nil' is for fetching all
 	if err != nil {
 		panic(err)
 	}
@@ -161,13 +161,14 @@ func TestFetchEventIDsByTime(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByTm("90m")
+	ids, err := FetchEvtIDsByTm("20m")
 	if err != nil {
 		panic(err)
 	}
-	for j, id := range ids {
-		fmt.Println(j, id)
-	}
+	// for j, id := range ids {
+	// 	fmt.Println(j, id)
+	// }
+	fmt.Println(len(ids))
 }
 
 func TestFetchEventIDsByCnt(t *testing.T) {
@@ -180,13 +181,14 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByCnt(200, "") // 'a week' period
+	ids, err := FetchEvtIDsByCnt(400, "45m") // 'a week' period default
 	if err != nil {
 		panic(err)
 	}
-	for j, id := range ids {
-		fmt.Println(j, id)
-	}
+	// for j, id := range ids {
+	// 	fmt.Println(j, id)
+	// }
+	fmt.Println(len(ids))
 }
 
 func TestGetEvt(t *testing.T) {

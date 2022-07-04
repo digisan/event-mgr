@@ -44,13 +44,13 @@ func (ef *EventFollow) Marshal(at any) (forKey, forValue []byte) {
 	return
 }
 
-func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) error {
+func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	ef.evtFlwee = string(dbKey)
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ef.evtFlwers = strings.Split(dbValStr, " ")
-	return nil
+	return ef, nil
 }
 
 func (ef *EventFollow) BadgerDB() *badger.DB {

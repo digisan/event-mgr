@@ -42,13 +42,13 @@ func (own *Own) Marshal(at any) (forKey, forValue []byte) {
 	return
 }
 
-func (own *Own) Unmarshal(dbKey, dbVal []byte) error {
+func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	own.OwnerYMSpan = string(dbKey)
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	own.EventIDs = strings.Split(dbValStr, " ")
-	return nil
+	return own, nil
 }
 
 func (own *Own) OnDbStore(dbStore func(*Own) error) {

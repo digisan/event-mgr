@@ -51,16 +51,18 @@ func (es *EventSpan) Marshal(at any) (forKey, forValue []byte) {
 	return
 }
 
-func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) error {
+func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) (any, error) {
 	if es.mSpanCache == nil {
 		es.mSpanCache = make(map[string][]TempEvt)
 	}
-	for _, id := range strings.Split(string(dbVal), SEP) {
-		es.mSpanCache[string(dbKey)] = append(es.mSpanCache[string(dbKey)], TempEvt{
+	key := string(dbKey)
+	ids := strings.Split(string(dbVal), SEP)
+	for _, id := range ids {
+		es.mSpanCache[key] = append(es.mSpanCache[key], TempEvt{
 			evtId: id,
 		})
 	}
-	return nil
+	return ids, nil
 }
 
 var mSpanType = map[string]int64{
@@ -212,31 +214,24 @@ func CurrIDs() []string {
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 }
 
-func FetchAllSpans() (spans []string, err error) {
-	es, err := GetObjectsDB[EventSpan](nil)
+func FetchSpans(prefix []byte) (spans []string, err error) {
+	mES, err := GetMapDB[EventSpan](prefix)
 	if err != nil {
 		return nil, err
 	}
-	for _, span := range es {
-		for k := range span.mSpanCache {
-			spans = append(spans, k)
-		}
-	}
+	spans, _ = Map2KVs(mES, func(i, j string) bool { return i < j }, nil)
 	return spans, nil
 }
 
-func FetchAllEvtIDs() (ids []string, err error) {
-	es, err := GetObjectsDB[EventSpan](nil)
+func FetchEvtIDs(prefix []byte) (ids []string, err error) {
+	mES, err := GetMapDB[EventSpan](prefix)
 	if err != nil {
 		return nil, err
 	}
 	idsDB := []string{}
-	for _, span := range es {
-		for _, evts := range span.mSpanCache {
-			for _, evt := range evts {
-				idsDB = append(idsDB, evt.evtId)
-			}
-		}
+	spans, _ := Map2KVs(mES, func(i, j string) bool { return i < j }, nil)
+	for _, span := range spans {
+		idsDB = append(idsDB, mES[span].([]string)...)
 	}
 	return append(Reverse(CurrIDs()), idsDB...), nil
 }
@@ -255,18 +250,12 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 	}
 
 	for _, ts := range tsGrp {
-		es, err := GetObjectsDB[EventSpan]([]byte(ts))
+		idBatch, err := FetchEvtIDs([]byte(ts))
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
 		}
-		for _, span := range es {
-			for _, evts := range span.mSpanCache {
-				for _, evt := range evts {
-					ids = append(ids, evt.evtId)
-				}
-			}
-		}
+		ids = append(ids, idBatch...)
 	}
 	return
 }

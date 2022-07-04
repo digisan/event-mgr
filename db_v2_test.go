@@ -13,7 +13,7 @@ func TestGetObjectDB(t *testing.T) {
 	// flw := NewEventFollow("000")
 	// flw.OnDbStore(SaveFlwDB) // for add/remove etc
 
-	flw := NewEventFollow("400")
+	flw := NewEventFollow("300")
 	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
 
 	flw.AddFollower("1", "2")
@@ -24,13 +24,13 @@ func TestGetObjectDB(t *testing.T) {
 
 	fmt.Println("-----")
 
-	ef, err := GetOneObjectDB[EventFollow]([]byte("400"))
+	ef, err := GetOneObjectDB[EventFollow]([]byte("300"))
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(ef)
 
-	fmt.Println(DeleteOneObjectDB[EventFollow]([]byte("400")))
+	// fmt.Println(DeleteOneObjectDB[EventFollow]([]byte("400")))
 }
 
 func TestGetAllObjectsDB(t *testing.T) {
@@ -38,13 +38,10 @@ func TestGetAllObjectsDB(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	evtflws, err := GetObjectsDB[EventFollow]([]byte("400"))
+	mEvtFlws, err := GetMapDB[EventFollow]([]byte("3"))
 	if err != nil {
 		panic(err)
 	}
-	for _, evtflw := range evtflws {
-		fmt.Println(evtflw)
-		fmt.Println("-----")
-	}
+	fmt.Println(mEvtFlws)
 
 }

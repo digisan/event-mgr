@@ -127,7 +127,7 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 	return
 }
 
-func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
+func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	evt.ID = string(dbKey)
 	segs := bytes.SplitN(dbVal, []byte(SEP), MOV_N)
 	for i := 0; i < MOV_N; i++ {
@@ -138,7 +138,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
 			t, err := time.Parse(time.RFC3339, sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)
-				return err
+				return nil, err
 			}
 			*evt.ValFieldAddr(i).(*time.Time) = t
 
@@ -146,7 +146,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
 			pub, err := strconv.ParseBool(sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)
-				return err
+				return nil, err
 			}
 			*evt.ValFieldAddr(i).(*bool) = pub
 
@@ -154,7 +154,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) error {
 			*evt.ValFieldAddr(i).(*string) = sval
 		}
 	}
-	return nil
+	return evt, nil
 }
 
 func (evt *Event) Publish(pub bool) error {

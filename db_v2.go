@@ -7,10 +7,10 @@ import (
 )
 
 type DbAccessible interface {
+	BadgerDB() *badger.DB
 	Key() []byte
 	Marshal(at any) (forKey []byte, forValue []byte)
-	Unmarshal(dbKey []byte, dbVal []byte) error
-	BadgerDB() *badger.DB
+	Unmarshal(dbKey []byte, dbVal []byte) (any, error)
 }
 
 type PtrDbAccessible[T any] interface {
@@ -30,7 +30,8 @@ func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 			itemproc := func(item *badger.Item) error {
 				if bytes.Equal(key, item.Key()) {
 					if err := item.Value(func(val []byte) error {
-						return rt.Unmarshal(key, val)
+						_, err := rt.Unmarshal(key, val)
+						return err
 					}); err != nil {
 						return err
 					}
@@ -51,6 +52,47 @@ func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 	return rt, err
 }
 
+// use Unmarshal returned data as map-value
+func GetMapDB[V any, T PtrDbAccessible[V]](prefix []byte) (map[string]any, error) {
+	var (
+		rt  = make(map[string]any)
+		err = T(new(V)).BadgerDB().View(func(txn *badger.Txn) error {
+			opts := badger.DefaultIteratorOptions
+			it := txn.NewIterator(opts)
+			defer it.Close()
+
+			itemproc := func(item *badger.Item) error {
+				return item.Value(func(val []byte) error {
+					key := item.Key()
+					data, err := T(new(V)).Unmarshal(key, val)
+					if err != nil {
+						return err
+					}
+					rt[string(key)] = data
+					return nil
+				})
+			}
+
+			if len(prefix) == 0 {
+				for it.Rewind(); it.Valid(); it.Next() {
+					if err := itemproc(it.Item()); err != nil {
+						return err
+					}
+				}
+			} else {
+				for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+					if err := itemproc(it.Item()); err != nil {
+						return err
+					}
+				}
+			}
+
+			return nil
+		})
+	)
+	return rt, err
+}
+
 // all objects if prefix is nil or empty
 func GetObjectsDB[V any, T PtrDbAccessible[V]](prefix []byte) ([]T, error) {
 	var (
@@ -63,7 +105,7 @@ func GetObjectsDB[V any, T PtrDbAccessible[V]](prefix []byte) ([]T, error) {
 			itemproc := func(item *badger.Item) error {
 				return item.Value(func(val []byte) error {
 					one := T(new(V))
-					if err := one.Unmarshal(item.Key(), val); err != nil {
+					if _, err := one.Unmarshal(item.Key(), val); err != nil {
 						return err
 					}
 					rt = append(rt, one)

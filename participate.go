@@ -54,7 +54,7 @@ func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
 	return
 }
 
-func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) error {
+func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbKeyStr := string(dbKey)
 	typeid := strings.Split(dbKeyStr, SEP_K)
 	ep.pType = typeid[0]
@@ -63,7 +63,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) error {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ep.ptps = strings.Split(dbValStr, " ")
-	return nil
+	return ep, nil
 }
 
 func (ep *EventParticipate) BadgerDB() *badger.DB {
