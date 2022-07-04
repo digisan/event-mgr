@@ -26,9 +26,10 @@ func NewEventParticipate(evtId, pType string) *EventParticipate {
 	lk.FailOnErrWhen(strings.Contains(pType, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in pType", SEP_K))
 	lk.FailOnErrWhen(strings.Contains(evtId, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in evtId", SEP_K))
 	return &EventParticipate{
-		pType: pType,
-		evtId: evtId,
-		ptps:  []string{},
+		pType:     pType,
+		evtId:     evtId,
+		ptps:      []string{},
+		fnDbStore: UpsertOneObjectDB[EventParticipate],
 	}
 }
 
@@ -63,6 +64,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ep.ptps = strings.Split(dbValStr, " ")
+	ep.fnDbStore = UpsertOneObjectDB[EventParticipate]
 	return ep, nil
 }
 
@@ -70,32 +72,20 @@ func (ep *EventParticipate) BadgerDB() *badger.DB {
 	return eDB.dbIDPtps
 }
 
-func (ep *EventParticipate) OnDbStore(dbStore func(*EventParticipate) error) {
-	ep.fnDbStore = dbStore
-}
-
 func (ep *EventParticipate) AddPtps(participants ...string) error {
 	ep.ptps = append(ep.ptps, participants...)
 	ep.ptps = Settify(ep.ptps...)
-	lk.FailOnErrWhen(ep.fnDbStore == nil, "%v", errors.New("EventParticipate [fnDbStore] is nil"))
-	if err := ep.fnDbStore(ep); err != nil {
-		return err
-	}
-	return nil
+	return ep.fnDbStore(ep)
 }
 
 func (ep *EventParticipate) RmPtps(participants ...string) error {
 	FilterFast(&ep.ptps, func(i int, e string) bool {
 		return NotIn(e, participants...)
 	})
-	lk.FailOnErrWhen(ep.fnDbStore == nil, "%v", errors.New("EventParticipate [fnDbStore] is nil"))
-	if err := ep.fnDbStore(ep); err != nil {
-		return err
-	}
-	return nil
+	return ep.fnDbStore(ep)
 }
 
-func GetParticipate(evtId, pType string) (*EventParticipate, error) {
+func Participate(evtId, pType string) (*EventParticipate, error) {
 	ep := NewEventParticipate(evtId, pType)
 	ep, err := GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {
@@ -104,7 +94,7 @@ func GetParticipate(evtId, pType string) (*EventParticipate, error) {
 	return ep, err
 }
 
-func GetParticipants(evtId, pType string) ([]string, error) {
+func Participants(evtId, pType string) ([]string, error) {
 	ep := NewEventParticipate(evtId, pType)
 	ep, err := GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {

@@ -48,11 +48,8 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	own.EventIDs = strings.Split(dbValStr, " ")
+	own.fnDbStore = UpsertOneObjectDB[Own]
 	return own, nil
-}
-
-func (own *Own) OnDbStore(dbStore func(*Own) error) {
-	own.fnDbStore = dbStore
 }
 
 func updateOwn(span string, tmpEvts ...TempEvt) error {

@@ -2,7 +2,6 @@ package eventmgr
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -163,19 +162,17 @@ func (es EventSpan) String() string {
 	return sb.String()
 }
 
+// store real event
 func AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
-
-	dbKey := NowSpan()
-
-	lk.FailOnErrWhen(evt.fnDbStore == nil, "%v", errors.New("Event [OnDbStore] is nil"))
 
 	if err := evt.fnDbStore(evt); err != nil {
 		return err
 	}
 	// lk.Log("%v", evt)
 
+	dbKey := NowSpan()
 	es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
 		owner:  evt.Owner,
 		yyyymm: evt.Tm.Format("200601"),
@@ -187,6 +184,7 @@ func AddEvent(evt *Event) error {
 	return nil
 }
 
+// store event indices
 func flush(span string) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
@@ -239,8 +237,6 @@ func FetchEvtIDs(prefix []byte) (ids []string, err error) {
 // past: such as "2h20m", "30m", "2s"
 func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
-	ids = Reverse(CurrIDs())
-
 	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
 	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
 
@@ -249,6 +245,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 		tsGrp = append(tsGrp, fmt.Sprint(i))
 	}
 
+	ids = Reverse(CurrIDs())
 	for _, ts := range tsGrp {
 		idBatch, err := FetchEvtIDs([]byte(ts))
 		if err != nil {

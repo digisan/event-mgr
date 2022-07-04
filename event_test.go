@@ -161,7 +161,7 @@ func TestFetchEventIDsByTime(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByTm("20m")
+	ids, err := FetchEvtIDsByTm("80m")
 	if err != nil {
 		panic(err)
 	}
@@ -189,6 +189,9 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 	// 	fmt.Println(j, id)
 	// }
 	fmt.Println(len(ids))
+	if len(ids) > 0 {
+		fmt.Println(ids[0])
+	}
 }
 
 func TestGetEvt(t *testing.T) {
@@ -201,23 +204,29 @@ func TestGetEvt(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	id := "50277fda-7cc4-4c16-8ddc-f8657d75510d"
+	id := "9fde4f86-21fe-4a24-9b43-202455f471e3"
 
-	evt, err := GetOneObjectDB[Event]([]byte(id))
+	evt, err := FetchEvent(id)
 	if err != nil {
 		panic(err)
 	}
+	if evt == nil {
+		fmt.Printf("Could NOT find [%s]\n", id)
+		return
+	}
 	fmt.Printf("---------------\n%v---------------\n", evt)
-
-	evt.OnDbStore(UpsertOneObjectDB[Event])
 
 	if err := evt.Publish(true); err != nil { // make this event public
 		panic(err)
 	}
 
-	evt, err = GetOneObjectDB[Event]([]byte(id))
+	evt, err = FetchEvent(id)
 	if err != nil {
 		panic(err)
+	}
+	if evt == nil {
+		fmt.Printf("Could NOT find [%s]\n", id)
+		return
 	}
 	fmt.Printf("---------------\n%v---------------\n", evt)
 }
@@ -232,7 +241,6 @@ func TestMarshal(t *testing.T) {
 	InitEventSpan("MINUTE", ctx)
 
 	evt := NewEvent("", "cdutwhu", "post", "json doc for event description")
-
 	fmt.Println(evt)
 
 	evt1 := &Event{}
@@ -273,8 +281,6 @@ func TestFollow(t *testing.T) {
 	defer CloseDB()
 
 	flw := NewEventFollow("000")
-	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
-
 	flw.AddFollower("1", "2")
 	fmt.Println(flw)
 
@@ -292,8 +298,6 @@ func TestFollowDB(t *testing.T) {
 	defer CloseDB()
 
 	flw := NewEventFollow("00")
-	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
-
 	err := flw.AddFollower("1", "2", "3")
 	if err == nil {
 		fmt.Println(flw)
@@ -303,7 +307,7 @@ func TestFollowDB(t *testing.T) {
 
 	fmt.Println("-------------")
 
-	fmt.Println(GetOneObjectDB[EventFollow]([]byte("00")))
+	fmt.Println(Followers("00"))
 }
 
 func TestGetFollowers(t *testing.T) {
@@ -311,7 +315,7 @@ func TestGetFollowers(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	fids, err := GetFollowers("00")
+	fids, err := Followers("00")
 	fmt.Println(fids, err)
 }
 
@@ -321,8 +325,6 @@ func TestParticipate(t *testing.T) {
 	defer CloseDB()
 
 	ep := NewEventParticipate("001", "thumb")
-	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
-
 	err := ep.AddPtps("A", "a", "b", "c")
 	if err == nil {
 		fmt.Println(ep)
@@ -332,7 +334,7 @@ func TestParticipate(t *testing.T) {
 
 	fmt.Println("-------------")
 
-	fmt.Println(GetParticipants("001", "thumb"))
+	fmt.Println(Participants("001", "thumb"))
 
 }
 
@@ -341,11 +343,18 @@ func TestGetParticipants(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	ep, _ := GetParticipate("001", "thumb")
-	ep.OnDbStore(UpsertOneObjectDB[EventParticipate])
+	id := "002"
+	ep, err := Participate(id, "thumb")
+	if err != nil {
+		panic(err)
+	}
+	if ep == nil {
+		fmt.Printf("Could NOT find [%s]\n", id)
+		return
+	}
 	ep.RmPtps("b", "c", "d")
 
-	ptps, err := GetParticipants("001", "thumb")
+	ptps, err := Participants("002", "thumb")
 	fmt.Println(ptps, err)
 
 }

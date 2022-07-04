@@ -10,11 +10,7 @@ func TestGetObjectDB(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	// flw := NewEventFollow("000")
-	// flw.OnDbStore(SaveFlwDB) // for add/remove etc
-
 	flw := NewEventFollow("300")
-	flw.OnDbStore(UpsertOneObjectDB[EventFollow])
 
 	flw.AddFollower("1", "2")
 	flw.RmFollower("2")

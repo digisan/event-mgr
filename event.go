@@ -154,6 +154,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 			*evt.ValFieldAddr(i).(*string) = sval
 		}
 	}
+	evt.fnDbStore = UpsertOneObjectDB[Event]
 	return evt, nil
 }
 
@@ -163,6 +164,17 @@ func (evt *Event) Publish(pub bool) error {
 	return evt.fnDbStore(evt)
 }
 
-func (evt *Event) OnDbStore(dbStore func(*Event) error) {
-	evt.fnDbStore = dbStore
+func FetchEvent(id string) (*Event, error) {
+	return GetOneObjectDB[Event]([]byte(id))
+}
+
+func FetchEvents(ids ...string) (evts []*Event, err error) {
+	for _, id := range ids {
+		evt, err := FetchEvent(id)
+		if err != nil {
+			return nil, err
+		}
+		evts = append(evts, evt)
+	}
+	return
 }

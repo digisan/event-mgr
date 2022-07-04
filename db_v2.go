@@ -21,8 +21,9 @@ type PtrDbAccessible[T any] interface {
 // one object with fixed key
 func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 	var (
-		rt  = T(new(V))
-		err = rt.BadgerDB().View(func(txn *badger.Txn) error {
+		found = false
+		rt    = T(new(V))
+		err   = rt.BadgerDB().View(func(txn *badger.Txn) error {
 			opts := badger.DefaultIteratorOptions
 			it := txn.NewIterator(opts)
 			defer it.Close()
@@ -31,6 +32,7 @@ func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 				if bytes.Equal(key, item.Key()) {
 					if err := item.Value(func(val []byte) error {
 						_, err := rt.Unmarshal(key, val)
+						found = true
 						return err
 					}); err != nil {
 						return err
@@ -46,7 +48,7 @@ func GetOneObjectDB[V any, T PtrDbAccessible[V]](key []byte) (T, error) {
 			return nil
 		})
 	)
-	if len(rt.Key()) == 0 {
+	if !found {
 		return nil, err
 	}
 	return rt, err

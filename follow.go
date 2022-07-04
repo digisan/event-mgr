@@ -20,6 +20,7 @@ func NewEventFollow(followee string) *EventFollow {
 	return &EventFollow{
 		evtFlwee:  followee,
 		evtFlwers: []string{},
+		fnDbStore: UpsertOneObjectDB[EventFollow],
 	}
 }
 
@@ -50,15 +51,12 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ef.evtFlwers = strings.Split(dbValStr, " ")
+	ef.fnDbStore = UpsertOneObjectDB[EventFollow]
 	return ef, nil
 }
 
 func (ef *EventFollow) BadgerDB() *badger.DB {
 	return eDB.dbIDFlwIDs
-}
-
-func (ef *EventFollow) OnDbStore(dbStore func(*EventFollow) error) {
-	ef.fnDbStore = dbStore
 }
 
 func (ef *EventFollow) AddFollower(followers ...string) error {
@@ -82,7 +80,7 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 	return nil
 }
 
-func GetFollowers(flwee string) ([]string, error) {
+func Followers(flwee string) ([]string, error) {
 	ef, err := GetOneObjectDB[EventFollow]([]byte(flwee))
 	if err != nil {
 		return nil, err
