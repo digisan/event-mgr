@@ -62,7 +62,6 @@ func (ef *EventFollow) BadgerDB() *badger.DB {
 func (ef *EventFollow) AddFollower(followers ...string) error {
 	ef.evtFlwers = append(ef.evtFlwers, followers...)
 	ef.evtFlwers = Settify(ef.evtFlwers...)
-	lk.FailOnErrWhen(ef.fnDbStore == nil, "%v", errors.New("EventFollow [fnDbStore] is nil"))
 	if err := ef.fnDbStore(ef); err != nil {
 		return err
 	}
@@ -73,15 +72,18 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 	FilterFast(&ef.evtFlwers, func(i int, e string) bool {
 		return NotIn(e, followers...)
 	})
-	lk.FailOnErrWhen(ef.fnDbStore == nil, "%v", errors.New("EventFollow [fnDbStore] is nil"))
 	if err := ef.fnDbStore(ef); err != nil {
 		return err
 	}
 	return nil
 }
 
+func FetchFollow(flwee string) (*EventFollow, error) {
+	return GetOneObjectDB[EventFollow]([]byte(flwee))
+}
+
 func Followers(flwee string) ([]string, error) {
-	ef, err := GetOneObjectDB[EventFollow]([]byte(flwee))
+	ef, err := FetchFollow(flwee)
 	if err != nil {
 		return nil, err
 	}

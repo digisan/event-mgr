@@ -160,7 +160,6 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 
 func (evt *Event) Publish(pub bool) error {
 	evt.Public = pub
-	lk.FailOnErrWhen(evt.fnDbStore == nil, "%v", errors.New("Event [fnDbStore] is nil"))
 	return evt.fnDbStore(evt)
 }
 
