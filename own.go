@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
+	bh "github.com/digisan/db-helper/badger-helper"
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
@@ -48,7 +49,7 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	own.EventIDs = strings.Split(dbValStr, " ")
-	own.fnDbStore = UpsertOneObjectDB[Own]
+	own.fnDbStore = bh.UpsertOneObjectDB[Own]
 	return own, nil
 }
 
@@ -62,7 +63,7 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 		own := &Own{
 			OwnerYMSpan: owner,
 			EventIDs:    ids,
-			fnDbStore:   UpsertOneObjectDB[Own],
+			fnDbStore:   bh.UpsertOneObjectDB[Own],
 		}
 		if err := own.fnDbStore(own); err != nil {
 			return err
@@ -72,7 +73,7 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	objects, err := GetObjectsDB[Own]([]byte(owner + "@" + yyyymm + "-"))
+	objects, err := bh.GetObjectsDB[Own]([]byte(owner + "@" + yyyymm + "-"))
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func FetchOwn(owner, yyyymm string) ([]string, error) {
 
 	rtIds := []string{}
 	for _, key := range keys {
-		own, err := GetOneObjectDB[Own]([]byte(key))
+		own, err := bh.GetOneObjectDB[Own]([]byte(key))
 		if err != nil {
 			return nil, err
 		}

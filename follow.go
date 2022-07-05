@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
+	bh "github.com/digisan/db-helper/badger-helper"
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
@@ -20,7 +21,7 @@ func NewEventFollow(followee string) *EventFollow {
 	return &EventFollow{
 		evtFlwee:  followee,
 		evtFlwers: []string{},
-		fnDbStore: UpsertOneObjectDB[EventFollow],
+		fnDbStore: bh.UpsertOneObjectDB[EventFollow],
 	}
 }
 
@@ -51,7 +52,7 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ef.evtFlwers = strings.Split(dbValStr, " ")
-	ef.fnDbStore = UpsertOneObjectDB[EventFollow]
+	ef.fnDbStore = bh.UpsertOneObjectDB[EventFollow]
 	return ef, nil
 }
 
@@ -79,7 +80,7 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 }
 
 func FetchFollow(flwee string) (*EventFollow, error) {
-	return GetOneObjectDB[EventFollow]([]byte(flwee))
+	return bh.GetOneObjectDB[EventFollow]([]byte(flwee))
 }
 
 func Followers(flwee string) ([]string, error) {

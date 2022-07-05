@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
+	bh "github.com/digisan/db-helper/badger-helper"
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 )
@@ -29,7 +30,7 @@ func NewEventParticipate(evtId, pType string) *EventParticipate {
 		pType:     pType,
 		evtId:     evtId,
 		ptps:      []string{},
-		fnDbStore: UpsertOneObjectDB[EventParticipate],
+		fnDbStore: bh.UpsertOneObjectDB[EventParticipate],
 	}
 }
 
@@ -64,7 +65,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	ep.ptps = strings.Split(dbValStr, " ")
-	ep.fnDbStore = UpsertOneObjectDB[EventParticipate]
+	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
 	return ep, nil
 }
 
@@ -87,7 +88,7 @@ func (ep *EventParticipate) RmPtps(participants ...string) error {
 
 func Participate(evtId, pType string) (*EventParticipate, error) {
 	ep := NewEventParticipate(evtId, pType)
-	ep, err := GetOneObjectDB[EventParticipate](ep.Key())
+	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func Participate(evtId, pType string) (*EventParticipate, error) {
 
 func Participants(evtId, pType string) ([]string, error) {
 	ep := NewEventParticipate(evtId, pType)
-	ep, err := GetOneObjectDB[EventParticipate](ep.Key())
+	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {
 		return nil, err
 	}

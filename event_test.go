@@ -143,7 +143,7 @@ func TestFetchEvtIds(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDs([]byte("27615")) // 'nil' is for fetching all
+	ids, err := FetchEvtIDs([]byte("")) // 'nil' is for fetching all
 	if err != nil {
 		panic(err)
 	}

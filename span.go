@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	bh "github.com/digisan/db-helper/badger-helper"
 	. "github.com/digisan/go-generics/v2"
 	"github.com/digisan/gotk/misc"
 	"github.com/digisan/gotk/strs"
@@ -199,7 +200,7 @@ func flush(span string) error {
 	}
 
 	// store a batch of span event IDs
-	if err := UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
+	if err := bh.UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
 		return err
 	}
 	delete(es.mSpanCache, span)
@@ -213,7 +214,7 @@ func CurrIDs() []string {
 }
 
 func FetchSpans(prefix []byte) (spans []string, err error) {
-	mES, err := GetMapDB[EventSpan](prefix)
+	mES, err := bh.GetMapDB[EventSpan](prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +223,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 }
 
 func FetchEvtIDs(prefix []byte) (ids []string, err error) {
-	mES, err := GetMapDB[EventSpan](prefix)
+	mES, err := bh.GetMapDB[EventSpan](prefix)
 	if err != nil {
 		return nil, err
 	}

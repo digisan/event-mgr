@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	bh "github.com/digisan/db-helper/badger-helper"
 	. "github.com/digisan/go-generics/v2"
 	lk "github.com/digisan/logkit"
 	"github.com/google/uuid"
@@ -39,7 +40,7 @@ func NewEvent(id, owner, evtType, raw string) *Event {
 		EvtType:   evtType,
 		RawJSON:   raw,
 		Public:    false,
-		fnDbStore: UpsertOneObjectDB[Event],
+		fnDbStore: bh.UpsertOneObjectDB[Event],
 	}
 }
 
@@ -154,7 +155,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 			*evt.ValFieldAddr(i).(*string) = sval
 		}
 	}
-	evt.fnDbStore = UpsertOneObjectDB[Event]
+	evt.fnDbStore = bh.UpsertOneObjectDB[Event]
 	return evt, nil
 }
 
@@ -164,7 +165,7 @@ func (evt *Event) Publish(pub bool) error {
 }
 
 func FetchEvent(id string) (*Event, error) {
-	return GetOneObjectDB[Event]([]byte(id))
+	return bh.GetOneObjectDB[Event]([]byte(id))
 }
 
 func FetchEvents(ids ...string) (evts []*Event, err error) {
