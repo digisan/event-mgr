@@ -214,7 +214,7 @@ func CurrIDs() []string {
 }
 
 func FetchSpans(prefix []byte) (spans []string, err error) {
-	mES, err := bh.GetMapDB[EventSpan](prefix)
+	mES, err := bh.GetMapDB[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 }
 
 func FetchEvtIDs(prefix []byte) (ids []string, err error) {
-	mES, err := bh.GetMapDB[EventSpan](prefix)
+	mES, err := bh.GetMapDB[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -73,7 +73,7 @@ func updateOwn(span string, tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	objects, err := bh.GetObjectsDB[Own]([]byte(owner + "@" + yyyymm + "-"))
+	objects, err := bh.GetObjectsDB[Own]([]byte(owner+"@"+yyyymm+"-"), nil)
 	if err != nil {
 		return nil, err
 	}
