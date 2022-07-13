@@ -8,19 +8,19 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
-var (
-	onceEDB sync.Once // do once
-	eDB     *EDB      // global, for keeping single instance
-)
-
-type EDB struct {
+type DBGrp struct {
 	sync.Mutex
-	dbSpanIDs  *badger.DB
-	dbIDEvt    *badger.DB
-	dbOwnerIDs *badger.DB
-	dbIDFlwIDs *badger.DB
-	dbIDPtps   *badger.DB
+	SpanIDs  *badger.DB
+	IDEvt    *badger.DB
+	OwnerIDs *badger.DB
+	IDFlwIDs *badger.DB
+	IDPtps   *badger.DB
 }
+
+var (
+	onceDB sync.Once // do once
+	DbGrp  *DBGrp    // global, for keeping single instance
+)
 
 func open(dir string) *badger.DB {
 	opt := badger.DefaultOptions("").WithInMemory(true)
@@ -34,43 +34,43 @@ func open(dir string) *badger.DB {
 }
 
 // init global 'eDB'
-func InitDB(dir string) *EDB {
-	if eDB == nil {
-		onceEDB.Do(func() {
-			eDB = &EDB{
-				dbSpanIDs:  open(filepath.Join(dir, "span-ids")),
-				dbIDEvt:    open(filepath.Join(dir, "id-event")),
-				dbOwnerIDs: open(filepath.Join(dir, "owner-ids")),
-				dbIDFlwIDs: open(filepath.Join(dir, "id-flwids")),
-				dbIDPtps:   open(filepath.Join(dir, "id-ptps")),
+func InitDB(dir string) *DBGrp {
+	if DbGrp == nil {
+		onceDB.Do(func() {
+			DbGrp = &DBGrp{
+				SpanIDs:  open(filepath.Join(dir, "span-ids")),
+				IDEvt:    open(filepath.Join(dir, "id-event")),
+				OwnerIDs: open(filepath.Join(dir, "owner-ids")),
+				IDFlwIDs: open(filepath.Join(dir, "id-flwids")),
+				IDPtps:   open(filepath.Join(dir, "id-ptps")),
 			}
 		})
 	}
-	return eDB
+	return DbGrp
 }
 
 func CloseDB() {
-	eDB.Lock()
-	defer eDB.Unlock()
+	DbGrp.Lock()
+	defer DbGrp.Unlock()
 
-	if eDB.dbSpanIDs != nil {
-		lk.FailOnErr("%v", eDB.dbSpanIDs.Close())
-		eDB.dbSpanIDs = nil
+	if DbGrp.SpanIDs != nil {
+		lk.FailOnErr("%v", DbGrp.SpanIDs.Close())
+		DbGrp.SpanIDs = nil
 	}
-	if eDB.dbIDEvt != nil {
-		lk.FailOnErr("%v", eDB.dbIDEvt.Close())
-		eDB.dbIDEvt = nil
+	if DbGrp.IDEvt != nil {
+		lk.FailOnErr("%v", DbGrp.IDEvt.Close())
+		DbGrp.IDEvt = nil
 	}
-	if eDB.dbOwnerIDs != nil {
-		lk.FailOnErr("%v", eDB.dbOwnerIDs.Close())
-		eDB.dbOwnerIDs = nil
+	if DbGrp.OwnerIDs != nil {
+		lk.FailOnErr("%v", DbGrp.OwnerIDs.Close())
+		DbGrp.OwnerIDs = nil
 	}
-	if eDB.dbIDFlwIDs != nil {
-		lk.FailOnErr("%v", eDB.dbIDFlwIDs.Close())
-		eDB.dbIDFlwIDs = nil
+	if DbGrp.IDFlwIDs != nil {
+		lk.FailOnErr("%v", DbGrp.IDFlwIDs.Close())
+		DbGrp.IDFlwIDs = nil
 	}
-	if eDB.dbIDPtps != nil {
-		lk.FailOnErr("%v", eDB.dbIDPtps.Close())
-		eDB.dbIDPtps = nil
+	if DbGrp.IDPtps != nil {
+		lk.FailOnErr("%v", DbGrp.IDPtps.Close())
+		DbGrp.IDPtps = nil
 	}
 }

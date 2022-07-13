@@ -57,7 +57,7 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 }
 
 func (ef *EventFollow) BadgerDB() *badger.DB {
-	return eDB.dbIDFlwIDs
+	return DbGrp.IDFlwIDs
 }
 
 func (ef *EventFollow) AddFollower(followers ...string) error {

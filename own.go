@@ -29,7 +29,7 @@ func (own Own) String() string {
 }
 
 func (own *Own) BadgerDB() *badger.DB {
-	return eDB.dbOwnerIDs
+	return DbGrp.OwnerIDs
 }
 
 func (own *Own) Key() []byte {

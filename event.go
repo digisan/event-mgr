@@ -96,7 +96,7 @@ func (evt *Event) ValFieldAddr(mov int) any {
 ////////////////////////////////////////////////////
 
 func (evt *Event) BadgerDB() *badger.DB {
-	return eDB.dbIDEvt
+	return DbGrp.IDEvt
 }
 
 func (evt *Event) Key() []byte {

@@ -34,7 +34,7 @@ type EventSpan struct {
 }
 
 func (es *EventSpan) BadgerDB() *badger.DB {
-	return eDB.dbSpanIDs
+	return DbGrp.SpanIDs
 }
 
 func (es *EventSpan) Key() []byte {

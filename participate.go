@@ -70,7 +70,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 }
 
 func (ep *EventParticipate) BadgerDB() *badger.DB {
-	return eDB.dbIDPtps
+	return DbGrp.IDPtps
 }
 
 func (ep *EventParticipate) AddPtps(participants ...string) error {
