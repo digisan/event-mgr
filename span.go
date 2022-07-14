@@ -1,6 +1,7 @@
 package eventmgr
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -56,13 +57,16 @@ func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) (any, error) {
 		es.mSpanCache = make(map[string][]TempEvt)
 	}
 	key := string(dbKey)
-	ids := strings.Split(string(dbVal), SEP)
-	for _, id := range ids {
-		es.mSpanCache[key] = append(es.mSpanCache[key], TempEvt{
-			evtId: id,
-		})
+	if dbVal = bytes.TrimSpace(dbVal); len(dbVal) > 0 {
+		ids := strings.Split(string(dbVal), SEP)
+		for _, id := range ids {
+			es.mSpanCache[key] = append(es.mSpanCache[key], TempEvt{
+				evtId: id,
+			})
+		}
+		return ids, nil
 	}
-	return ids, nil
+	return []string{}, nil
 }
 
 var mSpanType = map[string]int64{

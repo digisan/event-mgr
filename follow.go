@@ -51,7 +51,8 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
-	ef.evtFlwers = strings.Split(dbValStr, " ")
+	dbValStr = strings.TrimSpace(dbValStr)
+	ef.evtFlwers = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
 	ef.fnDbStore = bh.UpsertOneObjectDB[EventFollow]
 	return ef, nil
 }

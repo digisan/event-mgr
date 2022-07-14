@@ -64,7 +64,8 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
-	ep.ptps = strings.Split(dbValStr, " ")
+	dbValStr = strings.TrimSpace(dbValStr)
+	ep.ptps = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
 	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
 	return ep, nil
 }

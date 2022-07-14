@@ -48,7 +48,8 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
-	own.EventIDs = strings.Split(dbValStr, " ")
+	dbValStr = strings.TrimSpace(dbValStr)
+	own.EventIDs = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
 	own.fnDbStore = bh.UpsertOneObjectDB[Own]
 	return own, nil
 }
