@@ -93,3 +93,19 @@ func FetchOwn(owner, yyyymm string) ([]string, error) {
 
 	return Settify(rtIds...), nil
 }
+
+func deleteOwn(owner, yyyymm, span, id string) (int, error) {
+	key := fmt.Sprintf("%s@%s-%s", owner, yyyymm, span)
+	own, err := bh.GetOneObjectDB[Own]([]byte(key))
+	if err != nil {
+		return -1, err
+	}
+	if own == nil {
+		return 0, err
+	}
+	FilterFast(&own.EventIDs, func(i int, e string) bool { return e != id })
+	if err := bh.UpsertOneObjectDB(own); err != nil {
+		return -1, err
+	}
+	return 1, nil
+}

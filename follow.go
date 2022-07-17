@@ -11,18 +11,30 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
+// Follow a Post
+
 type EventFollow struct {
 	evtFlwee  string
 	evtFlwers []string
 	fnDbStore func(*EventFollow) error
 }
 
-func NewEventFollow(followee string) *EventFollow {
+func newEventFollow(flwee string) *EventFollow {
 	return &EventFollow{
-		evtFlwee:  followee,
+		evtFlwee:  flwee,
 		evtFlwers: []string{},
 		fnDbStore: bh.UpsertOneObjectDB[EventFollow],
 	}
+}
+
+func NewEventFollow(flwee string, useExisting bool) (*EventFollow, error) {
+	if flw, err := FetchFollow(flwee); err == nil && flw != nil {
+		if useExisting {
+			return flw, err
+		}
+		return nil, fmt.Errorf("<%s> is already existing, cannot be New", flwee)
+	}
+	return newEventFollow(flwee), nil
 }
 
 func (ef EventFollow) String() string {
@@ -61,7 +73,12 @@ func (ef *EventFollow) BadgerDB() *badger.DB {
 	return DbGrp.IDFlwIDs
 }
 
+/////////////////////////////////////////////////////////////////////////////
+
 func (ef *EventFollow) AddFollower(followers ...string) error {
+	if !EventIsAlive(ef.evtFlwee) {
+		return fmt.Errorf("<%s> is not alive, cannot add followers", ef.evtFlwee)
+	}
 	ef.evtFlwers = append(ef.evtFlwers, followers...)
 	ef.evtFlwers = Settify(ef.evtFlwers...)
 	if err := ef.fnDbStore(ef); err != nil {
@@ -71,6 +88,9 @@ func (ef *EventFollow) AddFollower(followers ...string) error {
 }
 
 func (ef *EventFollow) RmFollower(followers ...string) error {
+	if !EventIsAlive(ef.evtFlwee) {
+		return fmt.Errorf("<%s> is not alive, cannot remove followers", ef.evtFlwee)
+	}
 	FilterFast(&ef.evtFlwers, func(i int, e string) bool {
 		return NotIn(e, followers...)
 	})
@@ -81,6 +101,9 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 }
 
 func FetchFollow(flwee string) (*EventFollow, error) {
+	if !EventIsAlive(flwee) {
+		return nil, fmt.Errorf("<%s> is not alive, cannot be fetched", flwee)
+	}
 	return bh.GetOneObjectDB[EventFollow]([]byte(flwee))
 }
 
@@ -93,4 +116,8 @@ func Followers(flwee string) ([]string, error) {
 		return []string{}, nil
 	}
 	return ef.evtFlwers, nil
+}
+
+func deleteEventFollow(flwee string) (int, error) {
+	return bh.DeleteOneObjectDB[EventFollow]([]byte(flwee))
 }

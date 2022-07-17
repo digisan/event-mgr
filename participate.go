@@ -11,33 +11,45 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
+// Participate a Post, such as thumb
+
 const (
 	SEP_K = "^"
 	SEP_V = "^"
 )
 
 type EventParticipate struct {
-	pType     string
-	evtId     string
-	ptps      []string
+	evtId     string   // event id
+	pType     string   // thumb, etc
+	ptps      []string // uname
 	fnDbStore func(*EventParticipate) error
 }
 
-func NewEventParticipate(evtId, pType string) *EventParticipate {
-	lk.FailOnErrWhen(strings.Contains(pType, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in pType", SEP_K))
-	lk.FailOnErrWhen(strings.Contains(evtId, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in evtId", SEP_K))
+func newEventParticipate(evtId, pType string) *EventParticipate {
 	return &EventParticipate{
-		pType:     pType,
 		evtId:     evtId,
+		pType:     pType,
 		ptps:      []string{},
 		fnDbStore: bh.UpsertOneObjectDB[EventParticipate],
 	}
 }
 
+func NewEventParticipate(evtId, pType string, useExisting bool) (*EventParticipate, error) {
+	lk.FailOnErrWhen(strings.Contains(evtId, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in evtId", SEP_K))
+	lk.FailOnErrWhen(strings.Contains(pType, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in pType", SEP_K))
+	if p, err := Participate(evtId, pType); err == nil && p != nil {
+		if useExisting {
+			return p, err
+		}
+		return nil, fmt.Errorf("<%s> is already existing, cannot be New,", evtId)
+	}
+	return newEventParticipate(evtId, pType), nil
+}
+
 func (ep EventParticipate) String() string {
 	sb := strings.Builder{}
-	sb.WriteString("Type: " + ep.pType + "\n")
 	sb.WriteString("EventID: " + ep.evtId + "\n")
+	sb.WriteString("Type: " + ep.pType + "\n")
 	sb.WriteString("Participants:")
 	for _, p := range ep.ptps {
 		sb.WriteString("\n  " + p)
@@ -46,7 +58,7 @@ func (ep EventParticipate) String() string {
 }
 
 func (ep *EventParticipate) Key() []byte {
-	return []byte(fmt.Sprintf("%s%s%s", ep.pType, SEP_K, ep.evtId))
+	return []byte(fmt.Sprintf("%s%s%s", ep.evtId, SEP_K, ep.pType))
 }
 
 func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
@@ -59,13 +71,15 @@ func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
 func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbKeyStr := string(dbKey)
 	typeid := strings.Split(dbKeyStr, SEP_K)
-	ep.pType = typeid[0]
-	ep.evtId = typeid[1]
+	ep.evtId = typeid[0]
+	ep.pType = typeid[1]
+
 	dbValStr := string(dbVal)
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	dbValStr = strings.TrimSpace(dbValStr)
 	ep.ptps = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
+
 	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
 	return ep, nil
 }
@@ -74,13 +88,21 @@ func (ep *EventParticipate) BadgerDB() *badger.DB {
 	return DbGrp.IDPtps
 }
 
+/////////////////////////////////////////////////////////////////////////////
+
 func (ep *EventParticipate) AddPtps(participants ...string) error {
+	if !EventIsAlive(ep.evtId) {
+		return fmt.Errorf("<%s> is not alive, cannot add participants", ep.evtId)
+	}
 	ep.ptps = append(ep.ptps, participants...)
 	ep.ptps = Settify(ep.ptps...)
 	return ep.fnDbStore(ep)
 }
 
 func (ep *EventParticipate) RmPtps(participants ...string) error {
+	if !EventIsAlive(ep.evtId) {
+		return fmt.Errorf("<%s> is not alive, cannot remove participants", ep.evtId)
+	}
 	FilterFast(&ep.ptps, func(i int, e string) bool {
 		return NotIn(e, participants...)
 	})
@@ -88,7 +110,10 @@ func (ep *EventParticipate) RmPtps(participants ...string) error {
 }
 
 func Participate(evtId, pType string) (*EventParticipate, error) {
-	ep := NewEventParticipate(evtId, pType)
+	if !EventIsAlive(evtId) {
+		return nil, fmt.Errorf("<%s> is not alive, its participate cannot be fetched", evtId)
+	}
+	ep := newEventParticipate(evtId, pType)
 	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {
 		return nil, err
@@ -97,7 +122,10 @@ func Participate(evtId, pType string) (*EventParticipate, error) {
 }
 
 func Participants(evtId, pType string) ([]string, error) {
-	ep := NewEventParticipate(evtId, pType)
+	if !EventIsAlive(evtId) {
+		return nil, fmt.Errorf("<%s> is not alive, its participants cannot be fetched", evtId)
+	}
+	ep := newEventParticipate(evtId, pType)
 	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
 	if err != nil {
 		return nil, err
@@ -106,4 +134,8 @@ func Participants(evtId, pType string) ([]string, error) {
 		return []string{}, nil
 	}
 	return ep.ptps, nil
+}
+
+func deleteParticipate(evtid string) (int, error) {
+	return bh.DeleteObjectsDB[EventParticipate]([]byte(evtid))
 }

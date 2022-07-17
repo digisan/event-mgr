@@ -18,6 +18,7 @@ import (
 
 // key: ID;
 // value: others
+// if changed, modify 1) NewXXX, 2) MOV/MOK 3) (Key/Value)FieldAddr, 4) Marshal, 5) Unmarshal.
 type Event struct {
 	ID        string
 	Tm        time.Time
@@ -25,6 +26,7 @@ type Event struct {
 	EvtType   string
 	RawJSON   string
 	Public    bool
+	Deleted   bool
 	fnDbStore func(*Event) error
 }
 
@@ -40,6 +42,7 @@ func NewEvent(id, owner, evtType, raw string) *Event {
 		EvtType:   evtType,
 		RawJSON:   raw,
 		Public:    false,
+		Deleted:   false,
 		fnDbStore: bh.UpsertOneObjectDB[Event],
 	}
 }
@@ -62,7 +65,7 @@ func (evt Event) String() string {
 // db key order
 const (
 	MOK_Id int = iota
-	MOK_N
+	MOK_END
 )
 
 func (evt *Event) KeyFieldAddr(mok int) *string {
@@ -79,7 +82,8 @@ const (
 	MOV_EvtType
 	MOV_RawJSON
 	MOV_Pub
-	MOV_N
+	MOV_Del
+	MOV_END
 )
 
 func (evt *Event) ValFieldAddr(mov int) any {
@@ -89,6 +93,7 @@ func (evt *Event) ValFieldAddr(mov int) any {
 		MOV_EvtType: &evt.EvtType,
 		MOV_RawJSON: &evt.RawJSON,
 		MOV_Pub:     &evt.Public,
+		MOV_Del:     &evt.Deleted,
 	}
 	return mFldAddr[mov]
 }
@@ -108,7 +113,7 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 
 	forKey = evt.Key()
 
-	for i := 0; i < MOV_N; i++ {
+	for i := 0; i < MOV_END; i++ {
 		switch v := evt.ValFieldAddr(i).(type) {
 
 		case *string:
@@ -119,9 +124,8 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 
 		case *time.Time:
 			forValue = append(forValue, []byte(v.Format(time.RFC3339))...)
-
 		}
-		if i < MOV_N-1 {
+		if i < MOV_END-1 {
 			forValue = append(forValue, []byte(SEP)...)
 		}
 	}
@@ -130,8 +134,8 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 
 func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	evt.ID = string(dbKey)
-	segs := bytes.SplitN(dbVal, []byte(SEP), MOV_N)
-	for i := 0; i < MOV_N; i++ {
+	segs := bytes.SplitN(dbVal, []byte(SEP), MOV_END)
+	for i := 0; i < MOV_END; i++ {
 		sval := string(segs[i])
 		switch i {
 
@@ -143,7 +147,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 			}
 			*evt.ValFieldAddr(i).(*time.Time) = t
 
-		case MOV_Pub:
+		case MOV_Pub, MOV_Del:
 			pub, err := strconv.ParseBool(sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)
@@ -164,17 +168,132 @@ func (evt *Event) Publish(pub bool) error {
 	return evt.fnDbStore(evt)
 }
 
-func FetchEvent(id string) (*Event, error) {
-	return bh.GetOneObjectDB[Event]([]byte(id))
+func (evt *Event) markDeleted() error {
+	evt.Deleted = true
+	return evt.fnDbStore(evt)
 }
 
-func FetchEvents(ids ...string) (evts []*Event, err error) {
+func FetchEvent(aliveonly bool, id string) (*Event, error) {
+	evt, err := bh.GetOneObjectDB[Event]([]byte(id))
+	if err != nil {
+		return nil, err
+	}
+	if aliveonly {
+		if evt != nil && !evt.Deleted {
+			return evt, err
+		}
+		return nil, err
+	}
+	return evt, err
+}
+
+func FetchEvents(aliveonly bool, ids ...string) (evts []*Event, err error) {
 	for _, id := range ids {
-		evt, err := FetchEvent(id)
+		evt, err := FetchEvent(aliveonly, id)
 		if err != nil {
 			return nil, err
 		}
-		evts = append(evts, evt)
+		if evt != nil {
+			evts = append(evts, evt)
+		}
 	}
 	return
+}
+
+func PubEvent(id string, flag bool) error {
+	evt, err := FetchEvent(true, id)
+	if err != nil {
+		return err
+	}
+	if evt != nil {
+		return evt.Publish(flag)
+	}
+	return fmt.Errorf("couldn't find %s, publish nothing", id)
+}
+
+func DelEvent(ids ...string) (int, error) {
+	cnt := 0
+	for _, id := range ids {
+		evt, err := FetchEvent(true, id)
+		if err != nil {
+			return -1, err
+		}
+		if evt != nil {
+			evt.markDeleted()
+			cnt++
+		}
+	}
+	return cnt, nil
+}
+
+func EventIsAlive(id string) bool {
+	evt, err := FetchEvent(true, id)
+	return err == nil && evt != nil
+}
+
+func EraseEvents(ids ...string) (int, error) {
+	DbGrp.Lock()
+	defer DbGrp.Unlock()
+
+	cnt := 0
+	for _, id := range ids {
+
+		// step 1: fetch event to get its tm
+		evt, err := FetchEvent(false, id)
+		if err != nil {
+			return -1, err
+		}
+		if evt == nil {
+			continue
+		}
+
+		// step 2: delete from id-event
+		n, err := bh.DeleteOneObjectDB[Event]([]byte(id))
+		if err != nil {
+			return -1, err
+		}
+		if n == 0 {
+			continue
+		}
+
+		if n == 1 {
+
+			// step 3: delete from span-ids
+			span := getSpanAt(evt.Tm)
+			eIds, err := FetchEvtIDs([]byte(span))
+			if err != nil {
+				return -1, err
+			}
+			tmpEvts := FilterMap(
+				eIds,
+				func(i int, s string) bool { return s != id },
+				func(i int, e string) TempEvt { return TempEvt{evtId: e} },
+			)
+			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvts}}
+			if err := bh.UpsertPartObjectDB(es, span); err != nil {
+				return -1, err
+			}
+
+			// step 4: delete from own
+			n, err := deleteOwn(evt.Owner, evt.Tm.Format("200601"), span, id)
+			if err != nil {
+				return -1, err
+			}
+			lk.FailOnErrWhen(n != 1, "%v", "n must be 1 in deleting from Own")
+
+			// step 5: delete follow
+			if _, err = deleteEventFollow(id); err != nil {
+				return -1, err
+			}
+
+			// step 6: delete participants
+			if _, err = deleteParticipate(id); err != nil {
+				return -1, err
+			}
+
+			//
+			cnt++
+		}
+	}
+	return cnt, nil
 }

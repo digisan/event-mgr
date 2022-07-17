@@ -93,7 +93,7 @@ func TestAddEventV2(t *testing.T) {
 	var n uint64
 	var wg sync.WaitGroup
 
-	const N = 1000
+	const N = 10
 	wg.Add(N)
 
 	for i := 0; i < N; i++ {
@@ -149,6 +149,15 @@ func TestFetchEvtIds(t *testing.T) {
 	}
 
 	fmt.Println("------> total:", len(ids))
+	if len(ids) > 0 {
+		fmt.Println("------> first:", ids[0])
+	}
+	fmt.Println()
+	if len(ids) < 20 {
+		for i, id := range ids {
+			fmt.Printf("%02d -- %s\n", i, id)
+		}
+	}
 }
 
 func TestFetchEventIDsByTime(t *testing.T) {
@@ -194,6 +203,11 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 	}
 }
 
+var (
+	id  = "ea44f05a-c088-4fef-a6e2-1610d5e9502d"
+	id1 = "641f640a-ad42-47c1-9d0b-5aa99c0c0c63"
+)
+
 func TestGetEvt(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -204,31 +218,60 @@ func TestGetEvt(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	id := "9fde4f86-21fe-4a24-9b43-202455f471e3"
+	for _, id := range []string{id, id1} {
 
-	evt, err := FetchEvent(id)
-	if err != nil {
-		panic(err)
-	}
-	if evt == nil {
-		fmt.Printf("Could NOT find [%s]\n", id)
-		return
-	}
-	fmt.Printf("---------------\n%v---------------\n", evt)
+		evt, err := FetchEvent(true, id)
+		if err != nil {
+			panic(err)
+		}
+		if evt == nil {
+			fmt.Printf("Could NOT find [%s]\n", id)
+			continue
+		}
+		fmt.Printf("---------------\n%v---------------\n", evt)
 
-	if err := evt.Publish(true); err != nil { // make this event public
-		panic(err)
-	}
+		if err := PubEvent(id, true); err != nil { // make this event public
+			panic(err)
+		}
 
-	evt, err = FetchEvent(id)
-	if err != nil {
-		panic(err)
+		evt, err = FetchEvent(true, id)
+		if err != nil {
+			panic(err)
+		}
+		if evt == nil {
+			fmt.Printf("Could NOT find [%s]\n", id)
+			continue
+		}
+		fmt.Printf("---------------\n%v---------------\n", evt)
+
+		fmt.Printf("------------------------------\n%v------------------------------\n", evt)
 	}
-	if evt == nil {
-		fmt.Printf("Could NOT find [%s]\n", id)
-		return
-	}
-	fmt.Printf("---------------\n%v---------------\n", evt)
+}
+
+func TestDelEvent(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitDB("./data")
+	defer CloseDB()
+
+	InitEventSpan("MINUTE", ctx)
+
+	fmt.Println(DelEvent(id, id1))
+}
+
+func TestEraseEvents(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	InitDB("./data")
+	defer CloseDB()
+
+	InitEventSpan("MINUTE", ctx)
+
+	fmt.Println(EraseEvents(id, id1))
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,9 +311,11 @@ func TestFetchOwn(t *testing.T) {
 
 	fmt.Println("----->", len(ids))
 
-	// for i, eid := range ids {
-	// 	fmt.Println(i, eid)
-	// }
+	if len(ids) < 20 {
+		for i, id := range ids {
+			fmt.Println(i, id)
+		}
+	}
 
 	time.Sleep(1 * time.Second)
 }
@@ -280,34 +325,23 @@ func TestFollow(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	flw := NewEventFollow("000")
-	flw.AddFollower("1", "2")
-	fmt.Println(flw)
-
-	flw.RmFollower("2", "3")
-	fmt.Println(flw)
-
-	flw1 := NewEventFollow("")
-	flw1.Unmarshal(flw.Marshal(nil))
-	fmt.Println(flw1)
-}
-
-func TestFollowDB(t *testing.T) {
-
-	InitDB("./data")
-	defer CloseDB()
-
-	flw := NewEventFollow("00")
-	err := flw.AddFollower("1", "2", "3")
-	if err == nil {
-		fmt.Println(flw)
-	} else {
+	flw, err := NewEventFollow("8d3a94b1-1845-4cc5-b68e-418911b49882", true)
+	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
-	fmt.Println("-------------")
+	err = flw.AddFollower("10", "20", "30", "40")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(flw)
 
-	fmt.Println(Followers("00"))
+	fmt.Println("---------------------------------------------")
+
+	flw.RmFollower("20")
+	fmt.Println(flw)
 }
 
 func TestGetFollowers(t *testing.T) {
@@ -315,8 +349,14 @@ func TestGetFollowers(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	fids, err := Followers("00")
-	fmt.Println(fids, err)
+	fids, err := Followers("8d3a94b1-1845-4cc5-b68e-418911b49882")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, id := range fids {
+		fmt.Println(id)
+	}
 }
 
 func TestParticipate(t *testing.T) {
@@ -324,18 +364,21 @@ func TestParticipate(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	ep := NewEventParticipate("001", "thumb")
-	err := ep.AddPtps("A", "a", "b", "c")
-	if err == nil {
-		fmt.Println(ep)
-	} else {
+	ep, err := NewEventParticipate("001", "thumb", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = ep.AddPtps("A", "a", "b", "c")
+	if err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Println(ep)
 
 	fmt.Println("-------------")
 
 	fmt.Println(Participants("001", "thumb"))
-
 }
 
 func TestGetParticipants(t *testing.T) {
@@ -356,5 +399,4 @@ func TestGetParticipants(t *testing.T) {
 
 	ptps, err := Participants("002", "thumb")
 	fmt.Println(ptps, err)
-
 }

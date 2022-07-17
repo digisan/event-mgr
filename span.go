@@ -90,6 +90,14 @@ func SetSpanType(spanType string) error {
 	return nil
 }
 
+func getSpanAt(tm time.Time) string {
+	tsMin := tm.Unix() / 60
+	sm, ok := mSpanType[curSpanType]
+	lk.FailOnErrWhen(!ok, "%v", fmt.Errorf("error at '%s'", curSpanType))
+	start := tsMin / sm * sm
+	return fmt.Sprintf("%d-%d", start, sm)
+}
+
 // tm: such as "2h20m", "30m", "2s"
 func getSpan(tm string, past bool) string {
 	if len(tm) == 0 {
@@ -101,12 +109,7 @@ func getSpan(tm string, past bool) string {
 	duration = IF(past, -duration, duration)
 
 	then := time.Now().Add(duration) // past is minus duration
-	tsMin := then.Unix() / 60
-
-	sm, ok := mSpanType[curSpanType]
-	lk.FailOnErrWhen(!ok, "%v", fmt.Errorf("error at '%s'", curSpanType))
-	start := tsMin / sm * sm
-	return fmt.Sprintf("%d-%d", start, sm)
+	return getSpanAt(then)
 }
 
 func NowSpan() string {
@@ -185,7 +188,6 @@ func AddEvent(evt *Event) error {
 	})
 
 	// lk.Log("after adding ------> span: %s -- id count: %d", dbKey, len(es.mSpanCache[dbKey]))
-
 	return nil
 }
 
@@ -226,6 +228,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 	return spans, nil
 }
 
+// prefix: span id, e.g. 27632141-1
 func FetchEvtIDs(prefix []byte) (ids []string, err error) {
 	mES, err := bh.GetMapDB[EventSpan](prefix, nil)
 	if err != nil {
