@@ -364,21 +364,40 @@ func TestParticipate(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
+	// ctx, cancel := context.WithCancel(context.Background())
+	// InitEventSpan("MINUTE", ctx)
+	// defer cancel()
+
+	// evt := NewEvent("001", "self", "event-type", "raw")
+	// err := AddEvent(evt)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
 	ep, err := NewEventParticipate("001", "thumb", true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = ep.AddPtps("A", "a", "b", "c")
-	if err != nil {
-		fmt.Println(err)
-	}
 
-	fmt.Println(ep)
+	// err = ep.AddPtps("A", "a", "b", "c")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	fmt.Println("original:\n", ep)
 
 	fmt.Println("-------------")
 
-	fmt.Println(Participants("001", "thumb"))
+	// fmt.Println(Participants("001", "thumb"))
+
+	fmt.Println("-------------")
+
+	if _, err = ep.TogglePtp("AA"); err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("after toggle:\n", ep)
 }
 
 func TestGetParticipants(t *testing.T) {

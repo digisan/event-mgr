@@ -21,7 +21,7 @@ const (
 type EventParticipate struct {
 	evtId     string   // event id
 	pType     string   // thumb, etc
-	ptps      []string // uname
+	Ptps      []string // uname
 	fnDbStore func(*EventParticipate) error
 }
 
@@ -29,7 +29,7 @@ func newEventParticipate(evtId, pType string) *EventParticipate {
 	return &EventParticipate{
 		evtId:     evtId,
 		pType:     pType,
-		ptps:      []string{},
+		Ptps:      []string{},
 		fnDbStore: bh.UpsertOneObjectDB[EventParticipate],
 	}
 }
@@ -51,7 +51,7 @@ func (ep EventParticipate) String() string {
 	sb.WriteString("EventID: " + ep.evtId + "\n")
 	sb.WriteString("Type: " + ep.pType + "\n")
 	sb.WriteString("Participants:")
-	for _, p := range ep.ptps {
+	for _, p := range ep.Ptps {
 		sb.WriteString("\n  " + p)
 	}
 	return sb.String()
@@ -64,7 +64,7 @@ func (ep *EventParticipate) Key() []byte {
 func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
 	forKey = ep.Key()
 	lk.FailOnErrWhen(len(forKey) == 0, "%v", errors.New("empty event for participants"))
-	forValue = []byte(fmt.Sprint(ep.ptps))
+	forValue = []byte(fmt.Sprint(ep.Ptps))
 	return
 }
 
@@ -78,7 +78,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimPrefix(dbValStr, "[")
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	dbValStr = strings.TrimSpace(dbValStr)
-	ep.ptps = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
+	ep.Ptps = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
 
 	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
 	return ep, nil
@@ -94,8 +94,8 @@ func (ep *EventParticipate) AddPtps(participants ...string) error {
 	if !EventIsAlive(ep.evtId) {
 		return fmt.Errorf("<%s> is not alive, cannot add participants", ep.evtId)
 	}
-	ep.ptps = append(ep.ptps, participants...)
-	ep.ptps = Settify(ep.ptps...)
+	ep.Ptps = append(ep.Ptps, participants...)
+	ep.Ptps = Settify(ep.Ptps...)
 	return ep.fnDbStore(ep)
 }
 
@@ -103,10 +103,36 @@ func (ep *EventParticipate) RmPtps(participants ...string) error {
 	if !EventIsAlive(ep.evtId) {
 		return fmt.Errorf("<%s> is not alive, cannot remove participants", ep.evtId)
 	}
-	FilterFast(&ep.ptps, func(i int, e string) bool {
+	FilterFast(&ep.Ptps, func(i int, e string) bool {
 		return NotIn(e, participants...)
 	})
 	return ep.fnDbStore(ep)
+}
+
+func (ep *EventParticipate) HasPtp(participant string) (bool, error) {
+	ptps, err := Participants(ep.evtId, ep.pType)
+	if err != nil {
+		return false, err
+	}
+	return In(participant, ptps...), nil
+}
+
+func (ep *EventParticipate) TogglePtp(participant string) (bool, error) {
+	hasPtp, err := ep.HasPtp(participant)
+	if err != nil {
+		return false, err
+	}
+	if hasPtp {
+		if err := ep.RmPtps(participant); err != nil {
+			return false, err
+		}
+		return false, nil
+	} else {
+		if err := ep.AddPtps(participant); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 }
 
 func Participate(evtId, pType string) (*EventParticipate, error) {
@@ -133,7 +159,7 @@ func Participants(evtId, pType string) ([]string, error) {
 	if ep == nil {
 		return []string{}, nil
 	}
-	return ep.ptps, nil
+	return ep.Ptps, nil
 }
 
 func deleteParticipate(evtid string) (int, error) {
