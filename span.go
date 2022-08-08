@@ -170,22 +170,26 @@ func (es EventSpan) String() string {
 	return sb.String()
 }
 
-// store real event
+// store real event, but excludes follower events
 func AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
 
+	// (we store all events (original & followers) into event db)
 	if err := evt.fnDbStore(evt); err != nil {
 		return err
 	}
 	// lk.Log("%v", evt)
 
-	dbKey := NowSpan()
-	es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
-		owner:  evt.Owner,
-		yyyymm: evt.Tm.Format("200601"),
-		evtId:  evt.ID,
-	})
+	// register event-ids into span, (we only register original events into span db)
+	if len(evt.Flwee) == 0 {
+		dbKey := NowSpan()
+		es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
+			owner:  evt.Owner,
+			yyyymm: evt.Tm.Format("200601"),
+			evtId:  evt.ID,
+		})
+	}
 
 	// lk.Log("after adding ------> span: %s -- id count: %d", dbKey, len(es.mSpanCache[dbKey]))
 	return nil

@@ -45,7 +45,7 @@ func TestAddEvent(t *testing.T) {
 					//
 					// Get *** Event ***
 					//
-					evt := NewEvent("", "uname", "eType", "rawjson")
+					evt := NewEvent("", "uname", "eType", "rawjson", "")
 
 					//
 					// TEST *** reading when writing ***
@@ -96,13 +96,22 @@ func TestAddEventV2(t *testing.T) {
 	const N = 10
 	wg.Add(N)
 
+	flwee := "ec7397d4-6098-4fa4-ba68-85f4eb7dfa05"
+	ef := newEventFollow(flwee)
 	for i := 0; i < N; i++ {
-		go func() {
-			evt := NewEvent("", "uname", "eType", "rawjson")
+		go func(i int) {
+
+			evt := NewEvent("", "uname", "eType", "rawjson", flwee) // if followee exists, span-db excludes
+			fmt.Println("auto event id:", evt.ID)
+
+			if len(flwee) > 0 && ef != nil && len(ef.evtFlwee) > 0 {
+				lk.FailOnErr("%v", ef.AddFollower(evt.ID))
+			}
+
 			lk.FailOnErr("%v", AddEvent(evt))
 			atomic.AddUint64(&n, 1)
 			wg.Done()
-		}()
+		}(i)
 	}
 
 	wg.Wait()
@@ -204,8 +213,8 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 }
 
 var (
-	id  = "ea44f05a-c088-4fef-a6e2-1610d5e9502d"
-	id1 = "641f640a-ad42-47c1-9d0b-5aa99c0c0c63"
+	id  = "d6476f66-43f6-49db-933f-04030d6391d7"
+	id1 = "4b46db73-4650-4249-a19a-bd189b4616c5"
 )
 
 func TestGetEvt(t *testing.T) {
@@ -230,6 +239,7 @@ func TestGetEvt(t *testing.T) {
 		}
 		fmt.Printf("---------------\n%v---------------\n", evt)
 
+		fmt.Println("Publishing...")
 		if err := PubEvent(id, true); err != nil { // make this event public
 			panic(err)
 		}
@@ -243,8 +253,6 @@ func TestGetEvt(t *testing.T) {
 			continue
 		}
 		fmt.Printf("---------------\n%v---------------\n", evt)
-
-		fmt.Printf("------------------------------\n%v------------------------------\n", evt)
 	}
 }
 
@@ -283,7 +291,7 @@ func TestMarshal(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	evt := NewEvent("", "cdutwhu", "post", "json doc for event description")
+	evt := NewEvent("", "cdutwhu", "post", "json doc for event description", "")
 	fmt.Println(evt)
 
 	evt1 := &Event{}
@@ -325,7 +333,7 @@ func TestFollow(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	flw, err := NewEventFollow("8d3a94b1-1845-4cc5-b68e-418911b49882", true)
+	flw, err := NewEventFollow("5e0697f9-51a3-4b74-ad11-b5a7aacfd57b", true)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -349,7 +357,7 @@ func TestGetFollowers(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	fids, err := Followers("8d3a94b1-1845-4cc5-b68e-418911b49882")
+	fids, err := Followers("ec7397d4-6098-4fa4-ba68-85f4eb7dfa05")
 	if err != nil {
 		fmt.Println(err)
 		return

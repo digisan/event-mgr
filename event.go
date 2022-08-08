@@ -27,11 +27,12 @@ type Event struct {
 	RawJSON   string
 	Public    bool
 	Deleted   bool
+	Flwee     string
 	fnDbStore func(*Event) error
 }
 
 // if [id] is empty, a new one will be assigned to event.
-func NewEvent(id, owner, evtType, raw string) *Event {
+func NewEvent(id, owner, evtType, raw, flwee string) *Event {
 	if len(id) == 0 {
 		id = uuid.NewString()
 	}
@@ -43,6 +44,7 @@ func NewEvent(id, owner, evtType, raw string) *Event {
 		RawJSON:   raw,
 		Public:    false,
 		Deleted:   false,
+		Flwee:     flwee,
 		fnDbStore: bh.UpsertOneObjectDB[Event],
 	}
 }
@@ -83,6 +85,7 @@ const (
 	MOV_RawJSON
 	MOV_Pub
 	MOV_Del
+	MOV_Flwee
 	MOV_END
 )
 
@@ -94,6 +97,7 @@ func (evt *Event) ValFieldAddr(mov int) any {
 		MOV_RawJSON: &evt.RawJSON,
 		MOV_Pub:     &evt.Public,
 		MOV_Del:     &evt.Deleted,
+		MOV_Flwee:   &evt.Flwee,
 	}
 	return mFldAddr[mov]
 }
@@ -173,12 +177,12 @@ func (evt *Event) markDeleted() error {
 	return evt.fnDbStore(evt)
 }
 
-func FetchEvent(aliveonly bool, id string) (*Event, error) {
+func FetchEvent(aliveOnly bool, id string) (*Event, error) {
 	evt, err := bh.GetOneObjectDB[Event]([]byte(id))
 	if err != nil {
 		return nil, err
 	}
-	if aliveonly {
+	if aliveOnly {
 		if evt != nil && !evt.Deleted {
 			return evt, err
 		}
@@ -187,9 +191,9 @@ func FetchEvent(aliveonly bool, id string) (*Event, error) {
 	return evt, err
 }
 
-func FetchEvents(aliveonly bool, ids ...string) (evts []*Event, err error) {
+func FetchEvents(aliveOnly bool, ids ...string) (evts []*Event, err error) {
 	for _, id := range ids {
-		evt, err := FetchEvent(aliveonly, id)
+		evt, err := FetchEvent(aliveOnly, id)
 		if err != nil {
 			return nil, err
 		}

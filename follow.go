@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	bh "github.com/digisan/db-helper/badger"
@@ -75,7 +76,14 @@ func (ef *EventFollow) BadgerDB() *badger.DB {
 
 /////////////////////////////////////////////////////////////////////////////
 
+var (
+	mtx = sync.Mutex{}
+)
+
 func (ef *EventFollow) AddFollower(followers ...string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+
 	if !EventIsAlive(ef.evtFlwee) {
 		return fmt.Errorf("<%s> is not alive, cannot add followers", ef.evtFlwee)
 	}
@@ -88,6 +96,9 @@ func (ef *EventFollow) AddFollower(followers ...string) error {
 }
 
 func (ef *EventFollow) RmFollower(followers ...string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+
 	if !EventIsAlive(ef.evtFlwee) {
 		return fmt.Errorf("<%s> is not alive, cannot remove followers", ef.evtFlwee)
 	}
@@ -101,6 +112,9 @@ func (ef *EventFollow) RmFollower(followers ...string) error {
 }
 
 func FetchFollow(flwee string) (*EventFollow, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+
 	if !EventIsAlive(flwee) {
 		return nil, fmt.Errorf("<%s> is not alive, cannot be fetched", flwee)
 	}
@@ -119,5 +133,8 @@ func Followers(flwee string) ([]string, error) {
 }
 
 func deleteEventFollow(flwee string) (int, error) {
+	mtx.Lock()
+	defer mtx.Unlock()
+
 	return bh.DeleteOneObjectDB[EventFollow]([]byte(flwee))
 }
