@@ -18,7 +18,7 @@ import (
 
 // key: ID;
 // value: others
-// if changed, modify 1) NewXXX, 2) MOV/MOK 3) (Key/Value)FieldAddr, 4) Marshal, 5) Unmarshal.
+// if changed, modify 1) NewXXX, 2) KO/VO 3) (Key/Value)FieldAddr, 4) Marshal, 5) Unmarshal.
 type Event struct {
 	ID        string
 	Tm        time.Time
@@ -66,40 +66,40 @@ func (evt Event) String() string {
 
 // db key order
 const (
-	MOK_Id int = iota
-	MOK_END
+	KO_Id int = iota
+	KO_END
 )
 
-func (evt *Event) KeyFieldAddr(mok int) *string {
+func (evt *Event) KeyFieldAddr(ko int) *string {
 	mFldAddr := map[int]*string{
-		MOK_Id: &evt.ID,
+		KO_Id: &evt.ID,
 	}
-	return mFldAddr[mok]
+	return mFldAddr[ko]
 }
 
 // db value order
 const (
-	MOV_Tm int = iota
-	MOV_Owner
-	MOV_EvtType
-	MOV_RawJSON
-	MOV_Pub
-	MOV_Del
-	MOV_Flwee
-	MOV_END
+	VO_Tm int = iota
+	VO_Owner
+	VO_EvtType
+	VO_RawJSON
+	VO_Pub
+	VO_Del
+	VO_Flwee
+	VO_END
 )
 
-func (evt *Event) ValFieldAddr(mov int) any {
+func (evt *Event) ValFieldAddr(vo int) any {
 	mFldAddr := map[int]any{
-		MOV_Tm:      &evt.Tm,
-		MOV_Owner:   &evt.Owner,
-		MOV_EvtType: &evt.EvtType,
-		MOV_RawJSON: &evt.RawJSON,
-		MOV_Pub:     &evt.Public,
-		MOV_Del:     &evt.Deleted,
-		MOV_Flwee:   &evt.Flwee,
+		VO_Tm:      &evt.Tm,
+		VO_Owner:   &evt.Owner,
+		VO_EvtType: &evt.EvtType,
+		VO_RawJSON: &evt.RawJSON,
+		VO_Pub:     &evt.Public,
+		VO_Del:     &evt.Deleted,
+		VO_Flwee:   &evt.Flwee,
 	}
-	return mFldAddr[mov]
+	return mFldAddr[vo]
 }
 
 ////////////////////////////////////////////////////
@@ -117,7 +117,7 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 
 	forKey = evt.Key()
 
-	for i := 0; i < MOV_END; i++ {
+	for i := 0; i < VO_END; i++ {
 		switch v := evt.ValFieldAddr(i).(type) {
 
 		case *string:
@@ -129,7 +129,7 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 		case *time.Time:
 			forValue = append(forValue, []byte(v.Format(time.RFC3339))...)
 		}
-		if i < MOV_END-1 {
+		if i < VO_END-1 {
 			forValue = append(forValue, []byte(SEP)...)
 		}
 	}
@@ -138,12 +138,12 @@ func (evt *Event) Marshal(at any) (forKey, forValue []byte) {
 
 func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	evt.ID = string(dbKey)
-	segs := bytes.SplitN(dbVal, []byte(SEP), MOV_END)
-	for i := 0; i < MOV_END; i++ {
+	segs := bytes.SplitN(dbVal, []byte(SEP), VO_END)
+	for i := 0; i < VO_END; i++ {
 		sval := string(segs[i])
 		switch i {
 
-		case MOV_Tm:
+		case VO_Tm:
 			t, err := time.Parse(time.RFC3339, sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)
@@ -151,7 +151,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 			}
 			*evt.ValFieldAddr(i).(*time.Time) = t
 
-		case MOV_Pub, MOV_Del:
+		case VO_Pub, VO_Del:
 			pub, err := strconv.ParseBool(sval)
 			if err != nil {
 				lk.WarnOnErr("%v", err)

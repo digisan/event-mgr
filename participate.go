@@ -11,74 +11,87 @@ import (
 	lk "github.com/digisan/logkit"
 )
 
-// Participate a Post, such as thumb
+// Participate a Post, such as thumb, vote etc
 
 const (
-	SEP_K = "^"
-	SEP_V = "^"
+	SEP_V_Cat  = "^^"
+	SEP_V_Ptpt = "^"
+	SEP_V_Map  = ":"
 )
 
 type EventParticipate struct {
-	evtId     string   // event id
-	pType     string   // thumb, etc
-	Ptps      []string // uname
+	evtId     string              // K: event id
+	mCatPtps  map[string][]string // V: map for each category's statistic, category can be "thumb", "vote-item" etc. Participants is uname list
 	fnDbStore func(*EventParticipate) error
 }
 
-func newEventParticipate(evtId, pType string) *EventParticipate {
+func newEventParticipate(evtId string) *EventParticipate {
 	return &EventParticipate{
 		evtId:     evtId,
-		pType:     pType,
-		Ptps:      []string{},
+		mCatPtps:  make(map[string][]string),
 		fnDbStore: bh.UpsertOneObjectDB[EventParticipate],
 	}
 }
 
-func NewEventParticipate(evtId, pType string, useExisting bool) (*EventParticipate, error) {
-	lk.FailOnErrWhen(strings.Contains(evtId, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in evtId", SEP_K))
-	lk.FailOnErrWhen(strings.Contains(pType, SEP_K), "%v", fmt.Errorf("invalid symbol(%s) in pType", SEP_K))
-	if p, err := Participate(evtId, pType); err == nil && p != nil {
+func NewEventParticipate(evtId string, useExisting bool) (*EventParticipate, error) {
+	if p, err := Participate(evtId); err == nil && p != nil {
 		if useExisting {
 			return p, err
 		}
 		return nil, fmt.Errorf("<%s> is already existing, cannot be New,", evtId)
 	}
-	return newEventParticipate(evtId, pType), nil
+	return newEventParticipate(evtId), nil
 }
 
 func (ep EventParticipate) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("EventID: " + ep.evtId + "\n")
-	sb.WriteString("Type: " + ep.pType + "\n")
-	sb.WriteString("Participants:")
-	for _, p := range ep.Ptps {
-		sb.WriteString("\n  " + p)
+	for cat, ptps := range ep.mCatPtps {
+		sb.WriteString(fmt.Sprintf("\n  Category:%s\tParticipants:%v", cat, ptps))
 	}
 	return sb.String()
 }
 
 func (ep *EventParticipate) Key() []byte {
-	return []byte(fmt.Sprintf("%s%s%s", ep.evtId, SEP_K, ep.pType))
+	return []byte(ep.evtId)
+}
+
+// cat1:user11^user12^user13^^cat2:user21^user22^^...
+func (ep *EventParticipate) Value() []byte {
+	sb := strings.Builder{}
+	for cat, ptps := range ep.mCatPtps {
+		sb.WriteString(cat + SEP_V_Map)
+		for i, p := range ptps {
+			if i < len(ptps)-1 {
+				sb.WriteString(p + SEP_V_Ptpt)
+			} else {
+				sb.WriteString(p)
+			}
+		}
+		sb.WriteString(SEP_V_Cat)
+	}
+	return []byte(strings.TrimSuffix(sb.String(), SEP_V_Cat))
 }
 
 func (ep *EventParticipate) Marshal(at any) (forKey, forValue []byte) {
 	forKey = ep.Key()
 	lk.FailOnErrWhen(len(forKey) == 0, "%v", errors.New("empty event for participants"))
-	forValue = []byte(fmt.Sprint(ep.Ptps))
+	forValue = ep.Value()
 	return
 }
 
 func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
-	dbKeyStr := string(dbKey)
-	typeid := strings.Split(dbKeyStr, SEP_K)
-	ep.evtId = typeid[0]
-	ep.pType = typeid[1]
+	ep.evtId = string(dbKey)
 
 	dbValStr := string(dbVal)
-	dbValStr = strings.TrimPrefix(dbValStr, "[")
-	dbValStr = strings.TrimSuffix(dbValStr, "]")
-	dbValStr = strings.TrimSpace(dbValStr)
-	ep.Ptps = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
+	if ep.mCatPtps == nil {
+		ep.mCatPtps = make(map[string][]string)
+	}
+	for _, catItem := range strings.Split(dbValStr, SEP_V_Cat) {
+		ss := strings.SplitN(catItem, SEP_V_Map, 2)
+		cat, ptps := ss[0], ss[1]
+		ep.mCatPtps[cat] = strings.Split(ptps, SEP_V_Ptpt)
+	}
 
 	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
 	return ep, nil
@@ -90,76 +103,79 @@ func (ep *EventParticipate) BadgerDB() *badger.DB {
 
 /////////////////////////////////////////////////////////////////////////////
 
-func (ep *EventParticipate) AddPtps(participants ...string) error {
+func (ep *EventParticipate) AddPtps(category string, participants ...string) error {
 	if !EventIsAlive(ep.evtId) {
 		return fmt.Errorf("<%s> is not alive, cannot add participants", ep.evtId)
 	}
-	ep.Ptps = append(ep.Ptps, participants...)
-	ep.Ptps = Settify(ep.Ptps...)
+	ep.mCatPtps[category] = append(ep.mCatPtps[category], participants...)
+	ep.mCatPtps[category] = Settify(ep.mCatPtps[category]...)
 	return ep.fnDbStore(ep)
 }
 
-func (ep *EventParticipate) RmPtps(participants ...string) error {
+func (ep *EventParticipate) RmPtps(category string, participants ...string) error {
 	if !EventIsAlive(ep.evtId) {
 		return fmt.Errorf("<%s> is not alive, cannot remove participants", ep.evtId)
 	}
-	FilterFast(&ep.Ptps, func(i int, e string) bool {
+	catptps := ep.mCatPtps[category]
+	FilterFast(&catptps, func(i int, e string) bool {
 		return NotIn(e, participants...)
 	})
+	ep.mCatPtps[category] = catptps
 	return ep.fnDbStore(ep)
 }
 
-func (ep *EventParticipate) HasPtp(participant string) (bool, error) {
-	ptps, err := Participants(ep.evtId, ep.pType)
+func (ep *EventParticipate) HasPtp(category, participant string) (bool, error) {
+	ptps, err := Participants(ep.evtId, category)
 	if err != nil {
 		return false, err
 	}
 	return In(participant, ptps...), nil
 }
 
-func (ep *EventParticipate) TogglePtp(participant string) (bool, error) {
-	hasPtp, err := ep.HasPtp(participant)
+func (ep *EventParticipate) TogglePtp(category, participant string) (bool, error) {
+	hasPtp, err := ep.HasPtp(category, participant)
 	if err != nil {
 		return false, err
 	}
 	if hasPtp {
-		if err := ep.RmPtps(participant); err != nil {
+		if err := ep.RmPtps(category, participant); err != nil {
 			return false, err
 		}
 		return false, nil
 	} else {
-		if err := ep.AddPtps(participant); err != nil {
+		if err := ep.AddPtps(category, participant); err != nil {
 			return false, err
 		}
 		return true, nil
 	}
 }
 
-func Participate(evtId, pType string) (*EventParticipate, error) {
+func Participate(evtId string) (*EventParticipate, error) {
 	if !EventIsAlive(evtId) {
 		return nil, fmt.Errorf("<%s> is not alive, its participate cannot be fetched", evtId)
 	}
-	ep := newEventParticipate(evtId, pType)
-	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
-	if err != nil {
-		return nil, err
-	}
-	return ep, err
-}
-
-func Participants(evtId, pType string) ([]string, error) {
-	if !EventIsAlive(evtId) {
-		return nil, fmt.Errorf("<%s> is not alive, its participants cannot be fetched", evtId)
-	}
-	ep := newEventParticipate(evtId, pType)
-	ep, err := bh.GetOneObjectDB[EventParticipate](ep.Key())
+	ep, err := bh.GetOneObjectDB[EventParticipate]([]byte(evtId))
 	if err != nil {
 		return nil, err
 	}
 	if ep == nil {
+		ep = newEventParticipate(evtId)
+	}
+	return ep, err
+}
+
+func Participants(evtId, category string) ([]string, error) {
+	ep, err := Participate(evtId)
+	if err != nil {
+		return nil, err
+	}
+	if ep == nil || ep.mCatPtps == nil {
 		return []string{}, nil
 	}
-	return ep.Ptps, nil
+	if _, ok := ep.mCatPtps[category]; !ok {
+		return []string{}, nil
+	}
+	return ep.mCatPtps[category], nil
 }
 
 func deleteParticipate(evtid string) (int, error) {

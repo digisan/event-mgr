@@ -84,6 +84,7 @@ func TestAddEvent(t *testing.T) {
 func TestAddEventV2(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
 
 	InitDB("./data")
 	defer CloseDB()
@@ -96,7 +97,7 @@ func TestAddEventV2(t *testing.T) {
 	const N = 10
 	wg.Add(N)
 
-	flwee := "ec7397d4-6098-4fa4-ba68-85f4eb7dfa05"
+	flwee := ""
 	ef := newEventFollow(flwee)
 	for i := 0; i < N; i++ {
 		go func(i int) {
@@ -213,7 +214,7 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 }
 
 var (
-	id  = "d6476f66-43f6-49db-933f-04030d6391d7"
+	id  = "3912825f-e0a5-4236-b36a-7cbc72d61d66"
 	id1 = "4b46db73-4650-4249-a19a-bd189b4616c5"
 )
 
@@ -314,12 +315,12 @@ func TestFetchOwn(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchOwn("uname", "202207")
+	ids, err := FetchOwn("uname", "202208")
 	lk.WarnOnErr("%v", err)
 
 	fmt.Println("----->", len(ids))
 
-	if len(ids) < 20 {
+	if len(ids) <= 20 {
 		for i, id := range ids {
 			fmt.Println(i, id)
 		}
@@ -333,7 +334,7 @@ func TestFollow(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	flw, err := NewEventFollow("5e0697f9-51a3-4b74-ad11-b5a7aacfd57b", true)
+	flw, err := NewEventFollow("3912825f-e0a5-4236-b36a-7cbc72d61d66", true)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -357,7 +358,7 @@ func TestGetFollowers(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	fids, err := Followers("ec7397d4-6098-4fa4-ba68-85f4eb7dfa05")
+	fids, err := Followers("3912825f-e0a5-4236-b36a-7cbc72d61d66")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -369,39 +370,39 @@ func TestGetFollowers(t *testing.T) {
 
 func TestParticipate(t *testing.T) {
 
-	InitDB("./data")
-	defer CloseDB()
-
 	// ctx, cancel := context.WithCancel(context.Background())
 	// InitEventSpan("MINUTE", ctx)
 	// defer cancel()
 
-	// evt := NewEvent("001", "self", "event-type", "raw")
+	InitDB("./data")
+	defer CloseDB()
+
+	// evt := NewEvent("001", "self", "event-type", "raw", "")
 	// err := AddEvent(evt)
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	ep, err := NewEventParticipate("001", "thumb", true)
+	ep, err := NewEventParticipate("001", true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	// err = ep.AddPtps("A", "a", "b", "c")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	err = ep.AddPtps("thumb", "a", "b", "c")
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	fmt.Println("original:\n", ep)
 
 	fmt.Println("-------------")
 
-	// fmt.Println(Participants("001", "thumb"))
+	fmt.Println(Participants("001", "thumb"))
 
 	fmt.Println("-------------")
 
-	if _, err = ep.TogglePtp("AA"); err != nil {
+	if _, err = ep.TogglePtp("thumb", "D"); err != nil {
 		fmt.Println(err)
 	}
 
@@ -414,7 +415,7 @@ func TestGetParticipants(t *testing.T) {
 	defer CloseDB()
 
 	id := "002"
-	ep, err := Participate(id, "thumb")
+	ep, err := Participate(id)
 	if err != nil {
 		panic(err)
 	}
