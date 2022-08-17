@@ -398,7 +398,7 @@ func TestParticipate(t *testing.T) {
 
 	fmt.Println("-------------")
 
-	fmt.Println(Participants("001", "thumb"))
+	fmt.Println(ep.Ptps("thumb"))
 
 	fmt.Println("-------------")
 
@@ -414,7 +414,7 @@ func TestGetParticipants(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	id := "002"
+	id := "001"
 	ep, err := Participate(id)
 	if err != nil {
 		panic(err)
@@ -423,8 +423,8 @@ func TestGetParticipants(t *testing.T) {
 		fmt.Printf("Could NOT find [%s]\n", id)
 		return
 	}
-	ep.RmPtps("b", "c", "d")
+	ep.RmPtps("thumb", "b", "c", "d")
 
-	ptps, err := Participants("002", "thumb")
+	ptps, err := ep.Ptps("thumb")
 	fmt.Println(ptps, err)
 }

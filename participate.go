@@ -125,7 +125,7 @@ func (ep *EventParticipate) RmPtps(category string, participants ...string) erro
 }
 
 func (ep *EventParticipate) HasPtp(category, participant string) (bool, error) {
-	ptps, err := Participants(ep.evtId, category)
+	ptps, err := ep.Ptps(category)
 	if err != nil {
 		return false, err
 	}
@@ -150,6 +150,21 @@ func (ep *EventParticipate) TogglePtp(category, participant string) (bool, error
 	}
 }
 
+func (ep *EventParticipate) Ptps(category string) ([]string, error) {
+	if !EventIsAlive(ep.evtId) {
+		return []string{}, fmt.Errorf("<%s> is not alive, cannot get participants", ep.evtId)
+	}
+	if ep.mCatPtps == nil {
+		return []string{}, nil
+	}
+	if _, ok := ep.mCatPtps[category]; !ok {
+		return []string{}, nil
+	}
+	return ep.mCatPtps[category], nil
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
 func Participate(evtId string) (*EventParticipate, error) {
 	if !EventIsAlive(evtId) {
 		return nil, fmt.Errorf("<%s> is not alive, its participate cannot be fetched", evtId)
@@ -164,19 +179,16 @@ func Participate(evtId string) (*EventParticipate, error) {
 	return ep, err
 }
 
-func Participants(evtId, category string) ([]string, error) {
-	ep, err := Participate(evtId)
-	if err != nil {
-		return nil, err
-	}
-	if ep == nil || ep.mCatPtps == nil {
-		return []string{}, nil
-	}
-	if _, ok := ep.mCatPtps[category]; !ok {
-		return []string{}, nil
-	}
-	return ep.mCatPtps[category], nil
-}
+// func Participants(evtId, category string) ([]string, error) {
+// 	ep, err := Participate(evtId)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if ep == nil {
+// 		return []string{}, nil
+// 	}
+// 	return ep.Ptps(category)
+// }
 
 func deleteParticipate(evtid string) (int, error) {
 	return bh.DeleteObjectsDB[EventParticipate]([]byte(evtid))
