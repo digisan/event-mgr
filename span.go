@@ -200,19 +200,22 @@ func flush(span string) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
 
-	defer misc.TrackTime(time.Now())
+	if n := len(es.mSpanCache[span]); n > 0 {
 
-	lk.Log("before flushing ------> span: %s -- id count: %d", span, len(es.mSpanCache[span]))
+		defer misc.TrackTime(time.Now())
+		lk.Log("before flushing ------> span: [%s] -- id count: [%d]", span, n)
 
-	// update [owner] - eventIDs storage
-	if err := updateOwn(span, es.mSpanCache[span]...); err != nil {
-		return err
+		// update [owner] - eventIDs storage
+		if err := updateOwn(span, es.mSpanCache[span]...); err != nil {
+			return err
+		}
+
+		// store a batch of span event IDs
+		if err := bh.UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
+			return err
+		}
 	}
 
-	// store a batch of span event IDs
-	if err := bh.UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
-		return err
-	}
 	delete(es.mSpanCache, span)
 
 	return nil
