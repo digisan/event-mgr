@@ -10,11 +10,12 @@ import (
 
 type DBGrp struct {
 	sync.Mutex
-	SpanIDs  *badger.DB
-	IDEvt    *badger.DB
-	OwnerIDs *badger.DB
-	IDFlwIDs *badger.DB
-	IDPtps   *badger.DB
+	SpanIDs     *badger.DB // span     : event ids
+	IDEvt       *badger.DB // event id : event content
+	MyIDs       *badger.DB // uname    : self own event ids
+	BookmarkIDs *badger.DB // uname    : bookmarked event ids
+	IDFlwIDs    *badger.DB // event id : follower event ids
+	IDPtps      *badger.DB // event id : uname participants
 }
 
 var (
@@ -38,11 +39,12 @@ func InitDB(dir string) *DBGrp {
 	if DbGrp == nil {
 		onceDB.Do(func() {
 			DbGrp = &DBGrp{
-				SpanIDs:  open(filepath.Join(dir, "span-ids")),
-				IDEvt:    open(filepath.Join(dir, "id-event")),
-				OwnerIDs: open(filepath.Join(dir, "owner-ids")),
-				IDFlwIDs: open(filepath.Join(dir, "id-flwids")),
-				IDPtps:   open(filepath.Join(dir, "id-ptps")),
+				SpanIDs:     open(filepath.Join(dir, "span-ids")),
+				IDEvt:       open(filepath.Join(dir, "id-event")),
+				MyIDs:       open(filepath.Join(dir, "my-ids")),
+				BookmarkIDs: open(filepath.Join(dir, "bookmark-ids")),
+				IDFlwIDs:    open(filepath.Join(dir, "id-flwids")),
+				IDPtps:      open(filepath.Join(dir, "id-ptps")),
 			}
 		})
 	}
@@ -61,9 +63,13 @@ func CloseDB() {
 		lk.FailOnErr("%v", DbGrp.IDEvt.Close())
 		DbGrp.IDEvt = nil
 	}
-	if DbGrp.OwnerIDs != nil {
-		lk.FailOnErr("%v", DbGrp.OwnerIDs.Close())
-		DbGrp.OwnerIDs = nil
+	if DbGrp.MyIDs != nil {
+		lk.FailOnErr("%v", DbGrp.MyIDs.Close())
+		DbGrp.MyIDs = nil
+	}
+	if DbGrp.BookmarkIDs != nil {
+		lk.FailOnErr("%v", DbGrp.BookmarkIDs.Close())
+		DbGrp.BookmarkIDs = nil
 	}
 	if DbGrp.IDFlwIDs != nil {
 		lk.FailOnErr("%v", DbGrp.IDFlwIDs.Close())

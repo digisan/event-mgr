@@ -206,7 +206,7 @@ func flush(span string) error {
 		lk.Log("before flushing ------> span: [%s] -- id count: [%d]", span, n)
 
 		// update [owner] - eventIDs storage
-		if err := updateOwn(span, es.mSpanCache[span]...); err != nil {
+		if err := streamUpdateOwn(span, es.mSpanCache[span]...); err != nil {
 			return err
 		}
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	bh "github.com/digisan/db-helper/badger"
@@ -15,8 +14,8 @@ import (
 // Follow a Post
 
 type EventFollow struct {
-	evtFlwee  string
-	evtFlwers []string
+	evtFlwee  string   // this event id
+	evtFlwers []string // follower event ids
 	fnDbStore func(*EventFollow) error
 }
 
@@ -76,10 +75,6 @@ func (ef *EventFollow) BadgerDB() *badger.DB {
 
 /////////////////////////////////////////////////////////////////////////////
 
-var (
-	mtx = sync.Mutex{}
-)
-
 func (ef *EventFollow) AddFollower(followers ...string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
@@ -95,20 +90,19 @@ func (ef *EventFollow) AddFollower(followers ...string) error {
 	return nil
 }
 
-func (ef *EventFollow) RmFollower(followers ...string) error {
+func (ef *EventFollow) RmFollower(followers ...string) (int, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
 	if !EventIsAlive(ef.evtFlwee) {
-		return fmt.Errorf("<%s> is not alive, cannot remove followers", ef.evtFlwee)
+		return -1, fmt.Errorf("<%s> is not alive, cannot remove followers", ef.evtFlwee)
 	}
-	FilterFast(&ef.evtFlwers, func(i int, e string) bool {
-		return NotIn(e, followers...)
-	})
+	prevN := len(ef.evtFlwers)
+	FilterFast(&ef.evtFlwers, func(i int, e string) bool { return NotIn(e, followers...) })
 	if err := ef.fnDbStore(ef); err != nil {
-		return err
+		return -1, err
 	}
-	return nil
+	return prevN - len(ef.evtFlwers), nil
 }
 
 func FetchFollow(flwee string) (*EventFollow, error) {

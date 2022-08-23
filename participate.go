@@ -21,7 +21,7 @@ const (
 
 type EventParticipate struct {
 	evtId     string              // K: event id
-	mCatPtps  map[string][]string // V: map for each category's statistic, category can be "thumb", "vote-item" etc. Participants is uname list
+	mCatPtps  map[string][]string // V: map for each category's statistic, category can be "thumb", "vote-item" etc. Participants is [user] list
 	fnDbStore func(*EventParticipate) error
 }
 
@@ -112,16 +112,18 @@ func (ep *EventParticipate) AddPtps(category string, participants ...string) err
 	return ep.fnDbStore(ep)
 }
 
-func (ep *EventParticipate) RmPtps(category string, participants ...string) error {
+func (ep *EventParticipate) RmPtps(category string, participants ...string) (int, error) {
 	if !EventIsAlive(ep.evtId) {
-		return fmt.Errorf("<%s> is not alive, cannot remove participants", ep.evtId)
+		return -1, fmt.Errorf("<%s> is not alive, cannot remove participants", ep.evtId)
 	}
 	catptps := ep.mCatPtps[category]
-	FilterFast(&catptps, func(i int, e string) bool {
-		return NotIn(e, participants...)
-	})
+	prevN := len(catptps)
+	FilterFast(&catptps, func(i int, e string) bool { return NotIn(e, participants...) })
 	ep.mCatPtps[category] = catptps
-	return ep.fnDbStore(ep)
+	if err := ep.fnDbStore(ep); err != nil {
+		return -1, err
+	}
+	return prevN - len(catptps), nil
 }
 
 func (ep *EventParticipate) HasPtp(category, participant string) (bool, error) {
@@ -138,8 +140,12 @@ func (ep *EventParticipate) TogglePtp(category, participant string) (bool, error
 		return false, err
 	}
 	if hasPtp {
-		if err := ep.RmPtps(category, participant); err != nil {
+		n, err := ep.RmPtps(category, participant)
+		if err != nil {
 			return false, err
+		}
+		if n != 1 {
+			return false, fmt.Errorf("remove participant [%s] error", participant)
 		}
 		return false, nil
 	} else {

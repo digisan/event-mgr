@@ -15,7 +15,7 @@ import (
 // value: EventIDs ([uuid])
 type Own struct {
 	OwnerYMSpan string           // uname@202206-27582250-1
-	EventIDs    []string         // [uuid]
+	EventIDs    []string         // [uuid], owner self events
 	fnDbStore   func(*Own) error // in db.go
 }
 
@@ -29,7 +29,7 @@ func (own Own) String() string {
 }
 
 func (own *Own) BadgerDB() *badger.DB {
-	return DbGrp.OwnerIDs
+	return DbGrp.MyIDs
 }
 
 func (own *Own) Key() []byte {
@@ -54,7 +54,7 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	return own, nil
 }
 
-func updateOwn(span string, tmpEvts ...TempEvt) error {
+func streamUpdateOwn(span string, tmpEvts ...TempEvt) error {
 	mOwnerEventIDs := make(map[string][]string)
 	for _, evt := range tmpEvts {
 		key := evt.owner + "@" + evt.yyyymm + "-" + span
@@ -103,9 +103,10 @@ func deleteOwn(owner, yyyymm, span, id string) (int, error) {
 	if own == nil {
 		return 0, err
 	}
+	prevN := len(own.EventIDs)
 	FilterFast(&own.EventIDs, func(i int, e string) bool { return e != id })
 	if err := bh.UpsertOneObjectDB(own); err != nil {
 		return -1, err
 	}
-	return 1, nil
+	return prevN - len(own.EventIDs), nil
 }
