@@ -438,27 +438,31 @@ func TestBookmark(t *testing.T) {
 	InitDB("./data")
 	defer CloseDB()
 
-	if err := AddBookmark("qmiao", "e34bab66-1884-43e9-b4a6-edfb38ca0dcd"); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	if err := AddBookmark("qmiao", "19b1ca66-6be0-46bf-8c67-5cd62c12adc1"); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	if err := AddBookmark("qmiao", "281aee18-debb-4fd9-bb56-6f0e5c20e9b7"); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	n, err := RemoveBookmark("qmiao", "e34bab66-1884-43e9-b4a6-edfb38ca0dcd")
-	fmt.Println(n, err)
-
-	ids, err := FetchBookmark("qmiao", "desc")
+	bm, err := NewBookmark("qmiao", true)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(ids)
+
+	// if err := bm.AddEvent("e34bab66-1884-43e9-b4a6-edfb38ca0dcd"); err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// if err := bm.AddEvent("19b1ca66-6be0-46bf-8c67-5cd62c12adc1"); err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// if err := bm.AddEvent("281aee18-debb-4fd9-bb56-6f0e5c20e9b7"); err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// n, err := bm.RemoveEvent("e34bab66-1884-43e9-b4a6-edfb38ca0dcd")
+	// fmt.Println(n, err)
+
+	has, err := bm.ToggleEvent("281aee18-debb-4fd9-bb56-6f0e5c20e9b7")
+	fmt.Println(has, err)
+
+	fmt.Println(bm.Bookmarks("desc"))
 }

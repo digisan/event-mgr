@@ -38,7 +38,7 @@ func NewEventParticipate(evtId string, useExisting bool) (*EventParticipate, err
 		if useExisting {
 			return p, err
 		}
-		return nil, fmt.Errorf("<%s> is already existing, cannot be New,", evtId)
+		return nil, fmt.Errorf("event <%s> is already existing, cannot be NewEventParticipate,", evtId)
 	}
 	return newEventParticipate(evtId), nil
 }
@@ -126,20 +126,16 @@ func (ep *EventParticipate) RmPtps(category string, participants ...string) (int
 	return prevN - len(catptps), nil
 }
 
-func (ep *EventParticipate) HasPtp(category, participant string) (bool, error) {
+func (ep *EventParticipate) HasPtp(category, participant string) bool {
 	ptps, err := ep.Ptps(category)
 	if err != nil {
-		return false, err
+		return false
 	}
-	return In(participant, ptps...), nil
+	return In(participant, ptps...)
 }
 
 func (ep *EventParticipate) TogglePtp(category, participant string) (bool, error) {
-	hasPtp, err := ep.HasPtp(category, participant)
-	if err != nil {
-		return false, err
-	}
-	if hasPtp {
+	if ep.HasPtp(category, participant) {
 		n, err := ep.RmPtps(category, participant)
 		if err != nil {
 			return false, err
@@ -184,17 +180,6 @@ func Participate(evtId string) (*EventParticipate, error) {
 	}
 	return ep, err
 }
-
-// func Participants(evtId, category string) ([]string, error) {
-// 	ep, err := Participate(evtId)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if ep == nil {
-// 		return []string{}, nil
-// 	}
-// 	return ep.Ptps(category)
-// }
 
 func deleteParticipate(evtid string) (int, error) {
 	return bh.DeleteObjectsDB[EventParticipate]([]byte(evtid))

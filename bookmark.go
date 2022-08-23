@@ -21,6 +21,24 @@ type Bookmark struct {
 	fnDbStore  func(*Bookmark) error // in db.go
 }
 
+func newBookmark(user string) *Bookmark {
+	return &Bookmark{
+		User:       user,
+		EventIDTMs: []string{},
+		fnDbStore:  bh.UpsertOneObjectDB[Bookmark],
+	}
+}
+
+func NewBookmark(user string, useExisting bool) (*Bookmark, error) {
+	if bm, err := FetchBookmark(user); err == nil && bm != nil {
+		if useExisting {
+			return bm, err
+		}
+		return nil, fmt.Errorf("user <%s> is already existing, cannot be NewBookmark,", user)
+	}
+	return newBookmark(user), nil
+}
+
 func (bm Bookmark) String() string {
 	sb := strings.Builder{}
 	sb.WriteString(bm.User + "\n")
@@ -57,14 +75,11 @@ func (bm *Bookmark) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	return bm, nil
 }
 
-func AddBookmark(user, evtId string) error {
+/////////////////////////////////////////////////////////////////////////
+
+func (bm *Bookmark) AddEvent(evtId string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
-
-	bookmark, err := bh.GetOneObjectDB[Bookmark]([]byte(user))
-	if err != nil {
-		return err
-	}
 
 	evt, err := FetchEvent(true, evtId)
 	if err != nil {
@@ -75,66 +90,71 @@ func AddBookmark(user, evtId string) error {
 	}
 	idtm := evtId + "@" + evt.Tm.Format("20060102150405")
 
-	if bookmark == nil {
-		bookmark = &Bookmark{
-			User:       user,
-			EventIDTMs: []string{idtm},
-			fnDbStore:  bh.UpsertOneObjectDB[Bookmark],
-		}
-		return bookmark.fnDbStore(bookmark)
-	}
-
-	bookmark.EventIDTMs = append(bookmark.EventIDTMs, idtm)
-	bookmark.EventIDTMs = Settify(bookmark.EventIDTMs...)
-	return bookmark.fnDbStore(bookmark)
+	bm.EventIDTMs = append(bm.EventIDTMs, idtm)
+	bm.EventIDTMs = Settify(bm.EventIDTMs...)
+	return bm.fnDbStore(bm)
 }
 
-func RemoveBookmark(user, evtId string) (int, error) {
+func (bm *Bookmark) RemoveEvent(evtId string) (int, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	bookmark, err := bh.GetOneObjectDB[Bookmark]([]byte(user))
-	if err != nil {
+	prevN := len(bm.EventIDTMs)
+	FilterFast(&bm.EventIDTMs, func(i int, e string) bool { return !strings.HasPrefix(e, evtId) })
+	if err := bm.fnDbStore(bm); err != nil {
 		return -1, err
 	}
-	if bookmark == nil {
-		return 0, nil
-	}
-
-	prevN := len(bookmark.EventIDTMs)
-	FilterFast(&bookmark.EventIDTMs, func(i int, e string) bool { return !strings.HasPrefix(e, evtId) })
-	if err := bh.UpsertOneObjectDB(bookmark); err != nil {
-		return -1, err
-	}
-	return prevN - len(bookmark.EventIDTMs), nil
+	return prevN - len(bm.EventIDTMs), nil
 }
 
-func FetchBookmark(user, order string) ([]string, error) {
-	bookmark, err := bh.GetOneObjectDB[Bookmark]([]byte(user))
-	if err != nil {
-		return nil, err
-	}
-	if bookmark == nil {
-		return []string{}, nil
-	}
-
-	evtIDs := []string{}
+// get all bookmarked events
+func (bm *Bookmark) Bookmarks(order string) (bms []string) {
 	switch order {
 	case "desc":
-		sort.SliceStable(bookmark.EventIDTMs, func(i, j int) bool {
-			left, right := bookmark.EventIDTMs[i], bookmark.EventIDTMs[j]
+		sort.SliceStable(bm.EventIDTMs, func(i, j int) bool {
+			left, right := bm.EventIDTMs[i], bm.EventIDTMs[j]
 			leftTm, rightTm := strs.SplitPart(left, "@", 1), strs.SplitPart(right, "@", 1)
 			return leftTm > rightTm
 		})
 	case "asc":
-		sort.SliceStable(bookmark.EventIDTMs, func(i, j int) bool {
-			left, right := bookmark.EventIDTMs[i], bookmark.EventIDTMs[j]
+		sort.SliceStable(bm.EventIDTMs, func(i, j int) bool {
+			left, right := bm.EventIDTMs[i], bm.EventIDTMs[j]
 			leftTm, rightTm := strs.SplitPart(left, "@", 1), strs.SplitPart(right, "@", 1)
 			return leftTm < rightTm
 		})
 	}
-	for _, idtm := range bookmark.EventIDTMs {
-		evtIDs = append(evtIDs, strs.SplitPart(idtm, "@", 0))
+	for _, idtm := range bm.EventIDTMs {
+		bms = append(bms, strs.SplitPart(idtm, "@", 0))
 	}
-	return evtIDs, nil
+	return bms
+}
+
+func (bm *Bookmark) HasEvent(evtId string) bool {
+	return In(evtId, bm.Bookmarks("")...)
+}
+
+func (bm *Bookmark) ToggleEvent(evtId string) (bool, error) {
+	if bm.HasEvent(evtId) {
+		n, err := bm.RemoveEvent(evtId)
+		if err != nil {
+			return false, err
+		}
+		if n != 1 {
+			return false, fmt.Errorf("remove event [%s] error", evtId)
+		}
+		return false, nil
+	} else {
+		if err := bm.AddEvent(evtId); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+}
+
+func FetchBookmark(user string) (*Bookmark, error) {
+	bookmark, err := bh.GetOneObjectDB[Bookmark]([]byte(user))
+	if err != nil {
+		return nil, err
+	}
+	return bookmark, nil
 }
