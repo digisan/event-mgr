@@ -45,7 +45,7 @@ func NewEvent(id, owner, evtType, raw, flwee string) *Event {
 		Public:    false,
 		Deleted:   false,
 		Flwee:     flwee,
-		fnDbStore: bh.UpsertOneObjectDB[Event],
+		fnDbStore: bh.UpsertOneObject[Event],
 	}
 }
 
@@ -163,7 +163,7 @@ func (evt *Event) Unmarshal(dbKey, dbVal []byte) (any, error) {
 			*evt.ValFieldAddr(i).(*string) = sval
 		}
 	}
-	evt.fnDbStore = bh.UpsertOneObjectDB[Event]
+	evt.fnDbStore = bh.UpsertOneObject[Event]
 	return evt, nil
 }
 
@@ -178,7 +178,7 @@ func (evt *Event) markDeleted() error {
 }
 
 func FetchEvent(aliveOnly bool, id string) (*Event, error) {
-	evt, err := bh.GetOneObjectDB[Event]([]byte(id))
+	evt, err := bh.GetOneObject[Event]([]byte(id))
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func EraseEvents(ids ...string) (int, error) {
 		}
 
 		// step 2: delete from id-event
-		n, err := bh.DeleteOneObjectDB[Event]([]byte(id))
+		n, err := bh.DeleteOneObject[Event]([]byte(id))
 		if err != nil {
 			return -1, err
 		}
@@ -274,7 +274,7 @@ func EraseEvents(ids ...string) (int, error) {
 				func(i int, e string) TempEvt { return TempEvt{evtId: e} },
 			)
 			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvts}}
-			if err := bh.UpsertPartObjectDB(es, span); err != nil {
+			if err := bh.UpsertPartObject(es, span); err != nil {
 				return -1, err
 			}
 

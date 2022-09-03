@@ -50,7 +50,7 @@ func (own *Own) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	dbValStr = strings.TrimSpace(dbValStr)
 	own.EventIDs = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
-	own.fnDbStore = bh.UpsertOneObjectDB[Own]
+	own.fnDbStore = bh.UpsertOneObject[Own]
 	return own, nil
 }
 
@@ -64,7 +64,7 @@ func streamUpdateOwn(span string, tmpEvts ...TempEvt) error {
 		own := &Own{
 			OwnerYMSpan: owner,
 			EventIDs:    ids,
-			fnDbStore:   bh.UpsertOneObjectDB[Own],
+			fnDbStore:   bh.UpsertOneObject[Own],
 		}
 		if err := own.fnDbStore(own); err != nil {
 			return err
@@ -74,7 +74,7 @@ func streamUpdateOwn(span string, tmpEvts ...TempEvt) error {
 }
 
 func FetchOwn(owner, yyyymm string) ([]string, error) {
-	objects, err := bh.GetObjectsDB[Own]([]byte(owner+"@"+yyyymm+"-"), nil)
+	objects, err := bh.GetObjects[Own]([]byte(owner+"@"+yyyymm+"-"), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func FetchOwn(owner, yyyymm string) ([]string, error) {
 
 	rtIds := []string{}
 	for _, key := range keys {
-		own, err := bh.GetOneObjectDB[Own]([]byte(key))
+		own, err := bh.GetOneObject[Own]([]byte(key))
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func FetchOwn(owner, yyyymm string) ([]string, error) {
 
 func deleteOwn(owner, yyyymm, span, id string) (int, error) {
 	key := fmt.Sprintf("%s@%s-%s", owner, yyyymm, span)
-	own, err := bh.GetOneObjectDB[Own]([]byte(key))
+	own, err := bh.GetOneObject[Own]([]byte(key))
 	if err != nil {
 		return -1, err
 	}
@@ -105,7 +105,7 @@ func deleteOwn(owner, yyyymm, span, id string) (int, error) {
 	}
 	prevN := len(own.EventIDs)
 	FilterFast(&own.EventIDs, func(i int, e string) bool { return e != id })
-	if err := bh.UpsertOneObjectDB(own); err != nil {
+	if err := bh.UpsertOneObject(own); err != nil {
 		return -1, err
 	}
 	return prevN - len(own.EventIDs), nil

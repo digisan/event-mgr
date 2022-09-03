@@ -25,7 +25,7 @@ func newBookmark(user string) *Bookmark {
 	return &Bookmark{
 		User:       user,
 		EventIDTMs: []string{},
-		fnDbStore:  bh.UpsertOneObjectDB[Bookmark],
+		fnDbStore:  bh.UpsertOneObject[Bookmark],
 	}
 }
 
@@ -71,7 +71,7 @@ func (bm *Bookmark) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	dbValStr = strings.TrimSpace(dbValStr)
 	bm.EventIDTMs = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
-	bm.fnDbStore = bh.UpsertOneObjectDB[Bookmark]
+	bm.fnDbStore = bh.UpsertOneObject[Bookmark]
 	return bm, nil
 }
 
@@ -152,7 +152,7 @@ func (bm *Bookmark) ToggleEvent(evtId string) (bool, error) {
 }
 
 func FetchBookmark(user string) (*Bookmark, error) {
-	bookmark, err := bh.GetOneObjectDB[Bookmark]([]byte(user))
+	bookmark, err := bh.GetOneObject[Bookmark]([]byte(user))
 	if err != nil {
 		return nil, err
 	}

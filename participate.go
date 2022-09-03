@@ -29,7 +29,7 @@ func newEventParticipate(evtId string) *EventParticipate {
 	return &EventParticipate{
 		evtId:     evtId,
 		mCatPtps:  make(map[string][]string),
-		fnDbStore: bh.UpsertOneObjectDB[EventParticipate],
+		fnDbStore: bh.UpsertOneObject[EventParticipate],
 	}
 }
 
@@ -93,7 +93,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 		ep.mCatPtps[cat] = strings.Split(ptps, SEP_V_Ptpt)
 	}
 
-	ep.fnDbStore = bh.UpsertOneObjectDB[EventParticipate]
+	ep.fnDbStore = bh.UpsertOneObject[EventParticipate]
 	return ep, nil
 }
 
@@ -171,7 +171,7 @@ func Participate(evtId string) (*EventParticipate, error) {
 	if !EventIsAlive(evtId) {
 		return nil, fmt.Errorf("<%s> is not alive, its participate cannot be fetched", evtId)
 	}
-	ep, err := bh.GetOneObjectDB[EventParticipate]([]byte(evtId))
+	ep, err := bh.GetOneObject[EventParticipate]([]byte(evtId))
 	if err != nil {
 		return nil, err
 	}
@@ -182,5 +182,5 @@ func Participate(evtId string) (*EventParticipate, error) {
 }
 
 func deleteParticipate(evtid string) (int, error) {
-	return bh.DeleteObjectsDB[EventParticipate]([]byte(evtid))
+	return bh.DeleteObjects[EventParticipate]([]byte(evtid))
 }

@@ -211,7 +211,7 @@ func flush(span string) error {
 		}
 
 		// store a batch of span event IDs
-		if err := bh.UpsertPartObjectDB(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
+		if err := bh.UpsertPartObject(es, span); err != nil { // store mSpanRefIDs at 'prevSpan'
 			return err
 		}
 	}
@@ -227,7 +227,7 @@ func CurrIDs() []string {
 }
 
 func FetchSpans(prefix []byte) (spans []string, err error) {
-	mES, err := bh.GetMapDB[EventSpan](prefix, nil)
+	mES, err := bh.GetMap[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 
 // prefix: span id, e.g. 27632141-1
 func FetchEvtIDs(prefix []byte) (ids []string, err error) {
-	mES, err := bh.GetMapDB[EventSpan](prefix, nil)
+	mES, err := bh.GetMap[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
 	}

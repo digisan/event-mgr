@@ -23,7 +23,7 @@ func newEventFollow(flwee string) *EventFollow {
 	return &EventFollow{
 		evtFlwee:  flwee,
 		evtFlwers: []string{},
-		fnDbStore: bh.UpsertOneObjectDB[EventFollow],
+		fnDbStore: bh.UpsertOneObject[EventFollow],
 	}
 }
 
@@ -65,7 +65,7 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	dbValStr = strings.TrimSuffix(dbValStr, "]")
 	dbValStr = strings.TrimSpace(dbValStr)
 	ef.evtFlwers = IF(len(dbValStr) > 0, strings.Split(dbValStr, " "), []string{})
-	ef.fnDbStore = bh.UpsertOneObjectDB[EventFollow]
+	ef.fnDbStore = bh.UpsertOneObject[EventFollow]
 	return ef, nil
 }
 
@@ -112,7 +112,7 @@ func FetchFollow(flwee string) (*EventFollow, error) {
 	if !EventIsAlive(flwee) {
 		return nil, fmt.Errorf("<%s> is not alive, cannot be fetched", flwee)
 	}
-	return bh.GetOneObjectDB[EventFollow]([]byte(flwee))
+	return bh.GetOneObject[EventFollow]([]byte(flwee))
 }
 
 func Followers(flwee string) ([]string, error) {
@@ -130,5 +130,5 @@ func deleteEventFollow(flwee string) (int, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	return bh.DeleteOneObjectDB[EventFollow]([]byte(flwee))
+	return bh.DeleteOneObject[EventFollow]([]byte(flwee))
 }
