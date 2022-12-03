@@ -231,7 +231,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	spans, _ = Map2KVs(mES, func(i, j string) bool { return i < j }, nil)
+	spans, _ = MapToKVs(mES, func(i, j string) bool { return i < j }, nil)
 	return spans, nil
 }
 
@@ -242,7 +242,7 @@ func FetchEvtIDs(prefix []byte) (ids []string, err error) {
 		return nil, err
 	}
 	idsDB := []string{}
-	spans, _ := Map2KVs(mES, func(i, j string) bool { return i < j }, nil)
+	spans, _ := MapToKVs(mES, func(i, j string) bool { return i < j }, nil)
 	for _, span := range spans {
 		idsDB = append(idsDB, mES[span].([]string)...)
 	}
