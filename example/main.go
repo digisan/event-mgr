@@ -22,7 +22,7 @@ func main() {
 	//
 	em.InitEventSpan("MINUTE", ctx)
 
-	// fmt.Println(es.CurrIDs())
+	// fmt.Println(es.CurIDs())
 
 	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)

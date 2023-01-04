@@ -11,8 +11,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	bh "github.com/digisan/db-helper/badger"
 	. "github.com/digisan/go-generics/v2"
-	"github.com/digisan/gotk/misc"
 	"github.com/digisan/gotk/strs"
+	"github.com/digisan/gotk/track"
 	lk "github.com/digisan/logkit"
 )
 
@@ -202,7 +202,7 @@ func flush(span string) error {
 
 	if n := len(es.mSpanCache[span]); n > 0 {
 
-		defer misc.TrackTime(time.Now())
+		defer track.TrackTime(time.Now())
 		lk.Log("before flushing ------> span: [%s] -- id count: [%d]", span, n)
 
 		// update [owner] - eventIDs storage
@@ -221,7 +221,7 @@ func flush(span string) error {
 	return nil
 }
 
-func CurrIDs() []string {
+func CurIDs() []string {
 	cache := es.mSpanCache[NowSpan()]
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
 }
@@ -246,21 +246,21 @@ func FetchEvtIDs(prefix []byte) (ids []string, err error) {
 	for _, span := range spans {
 		idsDB = append(idsDB, mES[span].([]string)...)
 	}
-	return append(Reverse(CurrIDs()), idsDB...), nil
+	return append(Reverse(CurIDs()), idsDB...), nil
 }
 
 // past: such as "2h20m", "30m", "2s"
 func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
-	psNum := int(strs.SplitPartToNum(PastSpan(past), "-", 0))
-	nsNum := int(strs.SplitPartToNum(NowSpan(), "-", 0))
+	psNum := strs.SplitPartTo[int](PastSpan(past), "-", 0)
+	nsNum := strs.SplitPartTo[int](NowSpan(), "-", 0)
 
 	tsGrp := []string{}
 	for i := nsNum; i > psNum; i-- {
 		tsGrp = append(tsGrp, fmt.Sprint(i))
 	}
 
-	ids = Reverse(CurrIDs())
+	ids = Reverse(CurIDs())
 	for _, ts := range tsGrp {
 		idBatch, err := FetchEvtIDs([]byte(ts))
 		if err != nil {

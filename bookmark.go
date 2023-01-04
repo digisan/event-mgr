@@ -43,7 +43,7 @@ func (bm Bookmark) String() string {
 	sb := strings.Builder{}
 	sb.WriteString(bm.User + "\n")
 	for i, idtm := range bm.EventIDTMs {
-		id := strs.SplitPart(idtm, "@", 0)
+		id := strs.SplitPartTo[string](idtm, "@", 0)
 		sb.WriteString(fmt.Sprintf("\t%02d\t%s\n", i, id))
 	}
 	return sb.String()
@@ -113,18 +113,18 @@ func (bm *Bookmark) Bookmarks(order string) (bms []string) {
 	case "desc":
 		sort.SliceStable(bm.EventIDTMs, func(i, j int) bool {
 			left, right := bm.EventIDTMs[i], bm.EventIDTMs[j]
-			leftTm, rightTm := strs.SplitPart(left, "@", 1), strs.SplitPart(right, "@", 1)
+			leftTm, rightTm := strs.SplitPartTo[string](left, "@", 1), strs.SplitPartTo[string](right, "@", 1)
 			return leftTm > rightTm
 		})
 	case "asc":
 		sort.SliceStable(bm.EventIDTMs, func(i, j int) bool {
 			left, right := bm.EventIDTMs[i], bm.EventIDTMs[j]
-			leftTm, rightTm := strs.SplitPart(left, "@", 1), strs.SplitPart(right, "@", 1)
+			leftTm, rightTm := strs.SplitPartTo[string](left, "@", 1), strs.SplitPartTo[string](right, "@", 1)
 			return leftTm < rightTm
 		})
 	}
 	for _, idtm := range bm.EventIDTMs {
-		bms = append(bms, strs.SplitPart(idtm, "@", 0))
+		bms = append(bms, strs.SplitPartTo[string](idtm, "@", 0))
 	}
 	return bms
 }

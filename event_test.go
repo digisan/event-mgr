@@ -29,7 +29,7 @@ func TestAddEvent(t *testing.T) {
 	// Init *** EventSpan ***
 	//
 	InitEventSpan("MINUTE", ctx)
-	// fmt.Println(es.CurrIDs())
+	// fmt.Println(es.CurIDs())
 
 	var n uint64
 
