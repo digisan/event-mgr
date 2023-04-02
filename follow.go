@@ -79,8 +79,8 @@ func (ef *EventFollow) AddFollower(followers ...string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	if !EventIsAlive(ef.evtFlwee) {
-		return fmt.Errorf("<%s> is not alive, cannot add followers", ef.evtFlwee)
+	if !EventHappened(ef.evtFlwee) {
+		return fmt.Errorf("<%s> is not existing, cannot add followers", ef.evtFlwee)
 	}
 	ef.evtFlwers = append(ef.evtFlwers, followers...)
 	ef.evtFlwers = Settify(ef.evtFlwers...)
@@ -94,8 +94,8 @@ func (ef *EventFollow) RmFollower(followers ...string) (int, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	if !EventIsAlive(ef.evtFlwee) {
-		return -1, fmt.Errorf("<%s> is not alive, cannot remove followers", ef.evtFlwee)
+	if !EventHappened(ef.evtFlwee) {
+		return -1, fmt.Errorf("<%s> is not existing, cannot remove followers", ef.evtFlwee)
 	}
 	prevN := len(ef.evtFlwers)
 	FilterFast(&ef.evtFlwers, func(i int, e string) bool { return NotIn(e, followers...) })
@@ -109,8 +109,8 @@ func FetchFollow(flwee string) (*EventFollow, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	if !EventIsAlive(flwee) {
-		return nil, fmt.Errorf("<%s> is not alive, cannot be fetched", flwee)
+	if !EventHappened(flwee) {
+		return nil, fmt.Errorf("<%s> is not existing, cannot be fetched", flwee)
 	}
 	return bh.GetOneObject[EventFollow]([]byte(flwee))
 }

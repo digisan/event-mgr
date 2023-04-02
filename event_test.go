@@ -389,7 +389,7 @@ func TestParticipate(t *testing.T) {
 		return
 	}
 
-	err = ep.AddPtps("thumb", "a", "b", "c")
+	err = ep.AddParticipants("thumb", "a", "b", "c")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -398,11 +398,11 @@ func TestParticipate(t *testing.T) {
 
 	fmt.Println("-------------")
 
-	fmt.Println(ep.Ptps("thumb"))
+	fmt.Println(ep.Participants("thumb"))
 
 	fmt.Println("-------------")
 
-	if _, err = ep.TogglePtp("thumb", "D"); err != nil {
+	if _, err = ep.ToggleParticipant("thumb", "D"); err != nil {
 		fmt.Println(err)
 	}
 
@@ -423,9 +423,9 @@ func TestGetParticipants(t *testing.T) {
 		fmt.Printf("Could NOT find [%s]\n", id)
 		return
 	}
-	ep.RmPtps("thumb", "b", "c", "d")
+	ep.RmParticipants("thumb", "b", "c", "d")
 
-	ptps, err := ep.Ptps("thumb")
+	ptps, err := ep.Participants("thumb")
 	fmt.Println(ptps, err)
 }
 

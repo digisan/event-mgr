@@ -230,7 +230,7 @@ func DelEvent(ids ...string) (int, error) {
 	return cnt, nil
 }
 
-func EventIsAlive(id string) bool {
+func EventHappened(id string) bool {
 	evt, err := FetchEvent(true, id)
 	return err == nil && evt != nil
 }
