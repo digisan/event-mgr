@@ -14,7 +14,7 @@ import (
 // Participate a Post, such as thumb, vote etc
 
 const (
-	SEP_V_Category    = "^^^"
+	SEP_V_Category    = "##"
 	SEP_V_Participant = "^^"
 	SEP_V_Map         = "::"
 )
@@ -33,21 +33,21 @@ func newEventParticipate(evtID string) *EventParticipate {
 	}
 }
 
-func NewEventParticipate(evtId string, useExisting bool) (*EventParticipate, error) {
-	if p, err := Participate(evtId); err == nil && p != nil {
+func NewEventParticipate(evtID string, useExisting bool) (*EventParticipate, error) {
+	if p, err := Participate(evtID); err == nil && p != nil {
 		if useExisting {
 			return p, err
 		}
-		return nil, fmt.Errorf("event <%s> is already existing, cannot be NewEventParticipate,", evtId)
+		return nil, fmt.Errorf("event <%s> is already existing, cannot be NewEventParticipate", evtID)
 	}
-	return newEventParticipate(evtId), nil
+	return newEventParticipate(evtID), nil
 }
 
 func (ep EventParticipate) String() string {
 	sb := strings.Builder{}
-	sb.WriteString("EventID: " + ep.evtID + "\n")
+	sb.WriteString("--EventID: " + ep.evtID)
 	for cat, ptps := range ep.mCatPtps {
-		sb.WriteString(fmt.Sprintf("\n  Category:%s\tParticipants:%v", cat, ptps))
+		sb.WriteString(fmt.Sprintf("\n----Category:%s\tParticipants:%v", cat, ptps))
 	}
 	return sb.String()
 }
@@ -56,17 +56,13 @@ func (ep *EventParticipate) Key() []byte {
 	return []byte(ep.evtID)
 }
 
-// cat1:user11^user12^user13^^cat2:user21^user22^^...
+// cat1::user11^^user12^^user13##cat2::user21^^user22##...
 func (ep *EventParticipate) Value() []byte {
 	sb := strings.Builder{}
 	for cat, ptps := range ep.mCatPtps {
 		sb.WriteString(cat + SEP_V_Map)
 		for i, p := range ptps {
-			if i < len(ptps)-1 {
-				sb.WriteString(p + SEP_V_Participant)
-			} else {
-				sb.WriteString(p)
-			}
+			sb.WriteString(IF(i < len(ptps)-1, p+SEP_V_Participant, p))
 		}
 		sb.WriteString(SEP_V_Category)
 	}
@@ -90,7 +86,7 @@ func (ep *EventParticipate) Unmarshal(dbKey, dbVal []byte) (any, error) {
 	for _, catItem := range strings.Split(dbValStr, SEP_V_Category) {
 		ss := strings.SplitN(catItem, SEP_V_Map, 2)
 		cat, ptps := ss[0], ss[1]
-		ep.mCatPtps[cat] = strings.Split(ptps, SEP_V_Participant)
+		ep.mCatPtps[cat] = IF(len(ptps) == 0, []string{}, strings.Split(ptps, SEP_V_Participant))
 	}
 
 	ep.fnDbStore = bh.UpsertOneObject[EventParticipate]
@@ -118,10 +114,11 @@ func (ep *EventParticipate) RmParticipants(category string, toRemove ...string) 
 	}
 	ptps := ep.mCatPtps[category]
 	prevN := len(ptps)
-	ptps = FilterMap[string, string](ptps, func(i int, e string) bool {
-		e = strings.TrimSpace(e)
+	ptps = FilterMap(ptps, func(i int, e string) bool {
 		return len(e) > 0 && NotIn(e, toRemove...)
-	}, nil)
+	}, func(i int, e string) string {
+		return e
+	})
 	ep.mCatPtps[category] = ptps
 	if err := ep.fnDbStore(ep); err != nil {
 		return -1, err
@@ -144,7 +141,7 @@ func (ep *EventParticipate) ToggleParticipant(category, participant string) (boo
 			return false, err
 		}
 		if n != 1 {
-			return false, fmt.Errorf("remove participant [%s] error", participant)
+			return false, fmt.Errorf("[%d] != 1, participant [%s] is not removed properly", n, participant)
 		}
 		return false, nil
 	} else {
@@ -170,20 +167,20 @@ func (ep *EventParticipate) Participants(category string) ([]string, error) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-func Participate(evtId string) (*EventParticipate, error) {
-	if !EventHappened(evtId) {
-		return nil, fmt.Errorf("<%s> is not existing, its participate cannot be fetched", evtId)
+func Participate(evtID string) (*EventParticipate, error) {
+	if !EventHappened(evtID) {
+		return nil, fmt.Errorf("<%s> is not existing, its participate cannot be fetched", evtID)
 	}
-	ep, err := bh.GetOneObject[EventParticipate]([]byte(evtId))
+	ep, err := bh.GetOneObject[EventParticipate]([]byte(evtID))
 	if err != nil {
 		return nil, err
 	}
 	if ep == nil {
-		ep = newEventParticipate(evtId)
+		ep = newEventParticipate(evtID)
 	}
 	return ep, err
 }
 
-func deleteParticipate(evtid string) (int, error) {
-	return bh.DeleteObjects[EventParticipate]([]byte(evtid))
+func deleteParticipate(evtID string) (int, error) {
+	return bh.DeleteObjects[EventParticipate]([]byte(evtID))
 }

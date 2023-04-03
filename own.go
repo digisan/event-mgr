@@ -58,7 +58,7 @@ func streamUpdateOwn(span string, tmpEvts ...TempEvt) error {
 	mOwnerEventIDs := make(map[string][]string)
 	for _, evt := range tmpEvts {
 		key := evt.owner + "@" + evt.yyyymm + "-" + span
-		mOwnerEventIDs[key] = append(mOwnerEventIDs[key], evt.evtId)
+		mOwnerEventIDs[key] = append(mOwnerEventIDs[key], evt.evtID)
 	}
 	for owner, ids := range mOwnerEventIDs {
 		own := &Own{

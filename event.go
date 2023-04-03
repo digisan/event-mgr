@@ -271,7 +271,7 @@ func EraseEvents(ids ...string) (int, error) {
 			tmpEvts := FilterMap(
 				eIds,
 				func(i int, s string) bool { return s != id },
-				func(i int, e string) TempEvt { return TempEvt{evtId: e} },
+				func(i int, e string) TempEvt { return TempEvt{evtID: e} },
 			)
 			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvts}}
 			if err := bh.UpsertPartObject(es, span); err != nil {

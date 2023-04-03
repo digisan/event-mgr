@@ -77,30 +77,30 @@ func (bm *Bookmark) Unmarshal(dbKey, dbVal []byte) (any, error) {
 
 /////////////////////////////////////////////////////////////////////////
 
-func (bm *Bookmark) AddEvent(evtId string) error {
+func (bm *Bookmark) AddEvent(evtID string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	evt, err := FetchEvent(true, evtId)
+	evt, err := FetchEvent(true, evtID)
 	if err != nil {
 		return err
 	}
 	if evt == nil {
-		return fmt.Errorf("event [%s] is not alive, cannot be bookmarked", evtId)
+		return fmt.Errorf("event [%s] is not alive, cannot be bookmarked", evtID)
 	}
-	idtm := evtId + "@" + evt.Tm.Format("20060102150405")
+	idtm := evtID + "@" + evt.Tm.Format("20060102150405")
 
 	bm.EventIDTMs = append(bm.EventIDTMs, idtm)
 	bm.EventIDTMs = Settify(bm.EventIDTMs...)
 	return bm.fnDbStore(bm)
 }
 
-func (bm *Bookmark) RemoveEvent(evtId string) (int, error) {
+func (bm *Bookmark) RemoveEvent(evtID string) (int, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
 
 	prevN := len(bm.EventIDTMs)
-	FilterFast(&bm.EventIDTMs, func(i int, e string) bool { return !strings.HasPrefix(e, evtId) })
+	FilterFast(&bm.EventIDTMs, func(i int, e string) bool { return !strings.HasPrefix(e, evtID) })
 	if err := bm.fnDbStore(bm); err != nil {
 		return -1, err
 	}
@@ -129,22 +129,22 @@ func (bm *Bookmark) Bookmarks(order string) (bms []string) {
 	return bms
 }
 
-func (bm *Bookmark) HasEvent(evtId string) bool {
-	return In(evtId, bm.Bookmarks("")...)
+func (bm *Bookmark) HasEvent(evtID string) bool {
+	return In(evtID, bm.Bookmarks("")...)
 }
 
-func (bm *Bookmark) ToggleEvent(evtId string) (bool, error) {
-	if bm.HasEvent(evtId) {
-		n, err := bm.RemoveEvent(evtId)
+func (bm *Bookmark) ToggleEvent(evtID string) (bool, error) {
+	if bm.HasEvent(evtID) {
+		n, err := bm.RemoveEvent(evtID)
 		if err != nil {
 			return false, err
 		}
 		if n != 1 {
-			return false, fmt.Errorf("remove event [%s] error", evtId)
+			return false, fmt.Errorf("remove event [%s] error", evtID)
 		}
 		return false, nil
 	} else {
-		if err := bm.AddEvent(evtId); err != nil {
+		if err := bm.AddEvent(evtID); err != nil {
 			return false, err
 		}
 		return true, nil

@@ -25,7 +25,7 @@ var (
 type TempEvt struct {
 	owner  string // uname
 	yyyymm string // "202208"
-	evtId  string // "uuid"
+	evtID  string // "uuid"
 }
 
 // key: span; value: TempEvts
@@ -47,7 +47,7 @@ func (es *EventSpan) Marshal(at any) (forKey, forValue []byte) {
 	span := at.(string)
 	forKey = []byte(span)
 	cache := es.mSpanCache[span]
-	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
+	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })
 	forValue = []byte(strings.Join(ids, SEP))
 	return
 }
@@ -61,7 +61,7 @@ func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) (any, error) {
 		ids := strings.Split(string(dbVal), SEP)
 		for _, id := range ids {
 			es.mSpanCache[key] = append(es.mSpanCache[key], TempEvt{
-				evtId: id,
+				evtID: id,
 			})
 		}
 		return ids, nil
@@ -162,7 +162,7 @@ func (es EventSpan) String() string {
 	for span, cache := range es.mSpanCache {
 		sb.WriteString(span + ": \n")
 		for idx, tEvt := range cache {
-			sb.WriteString(fmt.Sprintf("\t%04d\t%s\n", idx, tEvt.evtId))
+			sb.WriteString(fmt.Sprintf("\t%04d\t%s\n", idx, tEvt.evtID))
 			// sb.WriteString(fmt.Sprintf("\t\t%s\n", tEvt.owner))
 			// sb.WriteString(fmt.Sprintf("\t\t%s\n", tEvt.yyyymm))
 		}
@@ -187,7 +187,7 @@ func AddEvent(evt *Event) error {
 		es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
 			owner:  evt.Owner,
 			yyyymm: evt.Tm.Format("200601"),
-			evtId:  evt.ID,
+			evtID:  evt.ID,
 		})
 	}
 
@@ -223,7 +223,7 @@ func flush(span string) error {
 
 func CurIDs() []string {
 	cache := es.mSpanCache[NowSpan()]
-	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtId })
+	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })
 }
 
 func FetchSpans(prefix []byte) (spans []string, err error) {

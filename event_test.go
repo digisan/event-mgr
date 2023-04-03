@@ -383,30 +383,29 @@ func TestParticipate(t *testing.T) {
 	// 	panic(err)
 	// }
 
+	cat := "thumb"
+
 	ep, err := NewEventParticipate("001", true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("before toggle:\n%v\n", ep)
 
-	err = ep.AddParticipants("thumb", "a", "b", "c")
-	if err != nil {
+	// err = ep.AddParticipants("thumb", "a", "b", "c")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// fmt.Println("original:\n", ep)
+	// fmt.Println("-------------")
+	// fmt.Println(ep.Participants("thumb"))
+	// fmt.Println("-------------")
+
+	if _, err = ep.ToggleParticipant(cat, "D"); err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println("original:\n", ep)
-
-	fmt.Println("-------------")
-
-	fmt.Println(ep.Participants("thumb"))
-
-	fmt.Println("-------------")
-
-	if _, err = ep.ToggleParticipant("thumb", "D"); err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println("after toggle:\n", ep)
+	fmt.Printf("after toggle:\n%v\n", ep)
 }
 
 func TestGetParticipants(t *testing.T) {
