@@ -27,7 +27,7 @@ type Event struct {
 	RawJSON   string
 	Public    bool
 	Deleted   bool
-	Flwee     string
+	Followee  string
 	fnDbStore func(*Event) error
 }
 
@@ -44,7 +44,7 @@ func NewEvent(id, owner, evtType, raw, flwee string) *Event {
 		RawJSON:   raw,
 		Public:    false,
 		Deleted:   false,
-		Flwee:     flwee,
+		Followee:  flwee,
 		fnDbStore: bh.UpsertOneObject[Event],
 	}
 }
@@ -97,7 +97,7 @@ func (evt *Event) ValFieldAddr(vo int) any {
 		VO_RawJSON: &evt.RawJSON,
 		VO_Pub:     &evt.Public,
 		VO_Del:     &evt.Deleted,
-		VO_Flwee:   &evt.Flwee,
+		VO_Flwee:   &evt.Followee,
 	}
 	return mFldAddr[vo]
 }

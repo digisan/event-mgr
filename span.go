@@ -3,7 +3,9 @@ package eventmgr
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,7 @@ var (
 	onceES      sync.Once
 	es          *EventSpan = nil
 	curSpanType            = "MINUTE"
+	rtm                    = regexp.MustCompile(`^\d+[hms]$`)
 )
 
 type TempEvt struct {
@@ -182,7 +185,7 @@ func AddEvent(evt *Event) error {
 	// lk.Log("%v", evt)
 
 	// register event-ids into span, (we only register original events into span db)
-	if len(evt.Flwee) == 0 {
+	if len(evt.Followee) == 0 {
 		dbKey := NowSpan()
 		es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
 			owner:  evt.Owner,
@@ -272,18 +275,23 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 	return
 }
 
-// default IDs period is one week. [period] is like '10h', '500m' etc.
+// [period] is like []"10h", "500m", "10s"] etc.
 // if events count is less than [n], return all events
-func FetchEvtIDsByCnt(n int, period string) (ids []string, err error) {
-	if len(period) == 0 {
-		period = "168h"
+func FetchEvtIDsByCnt(n int, periods ...string) (ids []string, err error) {
+	if len(periods) == 0 {
+		periods = []string{"10m", "1h", "12h", "24h"}
 	}
-	ids, err = FetchEvtIDsByTm(period)
-	if err != nil {
-		return nil, err
-	}
-	if len(ids) > n {
-		return ids[:n], nil
+	for _, period := range periods {
+		if !rtm.MatchString(period) {
+			return nil, errors.New("periods must be like '1h', '50m', '20s'")
+		}
+		ids, err = FetchEvtIDsByTm(period)
+		if err != nil {
+			return nil, err
+		}
+		if len(ids) >= n {
+			return ids[:n], nil
+		}
 	}
 	return ids, nil
 }
