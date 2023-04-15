@@ -270,7 +270,11 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 			lk.WarnOnErr("%v", err)
 			return nil, err
 		}
+		if len(idBatch) == 0 {
+			continue
+		}
 		ids = append(ids, idBatch...)
+		ids = Settify(ids...)
 	}
 	return
 }
@@ -279,7 +283,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 // if events count is less than [n], return all events
 func FetchEvtIDsByCnt(n int, periods ...string) (ids []string, err error) {
 	if len(periods) == 0 {
-		periods = []string{"10m", "1h", "12h", "24h"}
+		periods = []string{"10m", "30m", "2h", "6h", "12h", "24h"}
 	}
 	for _, period := range periods {
 		if !rtm.MatchString(period) {
