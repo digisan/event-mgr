@@ -215,100 +215,153 @@ func PubEvent(id string, flag bool) error {
 	return fmt.Errorf("couldn't find %s, publish nothing", id)
 }
 
-func EventHappened(id string) bool {
+func EventExists(id string) bool {
 	event, err := FetchEvent(true, id)
 	return err == nil && event != nil
 }
 
-func DelEvent(ids ...string) (int, error) {
-	nDel := 0
+func EventHappened(id string) bool {
+	event, err := FetchEvent(false, id)
+	return err == nil && event != nil
+}
+
+func DelEvent(ids ...string) ([]string, error) {
+	var deleted []string
 	for _, id := range ids {
-		event, err := FetchEvent(true, id)
+		event, err := FetchEvent(false, id)
 		if err != nil {
-			return -1, err
+			return nil, err
 		}
 		if event != nil {
 			if err := event.markDeleted(); err != nil {
-				return -1, err
+				return nil, err
 			}
-			nDel++
+			deleted = append(deleted, id)
 		}
 	}
-	return nDel, nil
+	return deleted, nil
 }
 
-func EraseEvents(ids ...string) (int, error) {
+func EraseEvent(ids ...string) ([]string, error) {
 	DbGrp.Lock()
 	defer DbGrp.Unlock()
 
-	nDel, err := DelEvent(ids...)
-	if err != nil {
-		return -1, err
-	}
-
-	nEra := 0
+	var erased []string
 	for _, id := range ids {
 
-		// step 1: fetch event to get its tm
+		// STEP 1: fetch event to get its tm
 		event, err := FetchEvent(false, id)
 		if err != nil {
-			return -1, err
+			return nil, err
 		}
 		if event == nil {
 			continue
 		}
 
-		// step 2: delete from id-event
+		// STEP 2: delete from id-event
 		n, err := bh.DeleteOneObject[Event]([]byte(id))
 		if err != nil {
-			return -1, err
+			return nil, err
 		}
 		if n == 0 {
 			continue
 		}
 
+		// event content has been deleted, then...
 		if n == 1 {
 
-			// step 3: delete from span-ids
+			// STEP 3: delete from span-ids
 			span := getSpanAt(event.Tm)
-			eIds, err := FetchEvtIDs([]byte(span))
+			ok, err := DelOneEventID(span, id)
 			if err != nil {
-				return -1, err
+				return nil, err
 			}
-			tmpEvents := FilterMap(
-				eIds,
-				func(i int, s string) bool { return s != id },
-				func(i int, e string) TempEvt { return TempEvt{evtID: e} },
-			)
-			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
-			if err := bh.UpsertPartObject(es, span); err != nil {
-				return -1, err
+			if !ok {
+				return nil, fmt.Errorf("%v, @%v", "event-id in Event-Body is not consistent with Span-EventID", id)
 			}
 
-			// step 4: delete from own
+			// eIds, err := FetchEvtIDs([]byte(span))
+			// if err != nil {
+			// 	return -1, err
+			// }
+			// tmpEvents := FilterMap(
+			// 	eIds,
+			// 	func(i int, s string) bool { return s != id },
+			// 	func(i int, e string) TempEvt { return TempEvt{evtID: e} },
+			// )
+			// es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
+			// if err := bh.UpsertPartObject(es, span); err != nil {
+			// 	return -1, err
+			// }
+
+			// STEP 4: delete from own
 			n, err := deleteOwn(event.Owner, event.Tm.Format("200601"), span, id)
 			if err != nil {
-				return -1, err
+				return nil, err
 			}
 			if n != 1 {
-				return -1, fmt.Errorf("%v", "n must be 1 in deleting from Own")
+				return nil, fmt.Errorf("%v", "n must be 1 in deleting from Own")
 			}
 
-			// step 5: delete follow
+			// STEP 5: delete follow
 			if _, err = deleteEventFollow(id); err != nil {
-				return -1, err
+				return nil, err
 			}
 
-			// step 6: delete participants
+			// STEP 6: delete participants
 			if _, err = deleteParticipate(id); err != nil {
-				return -1, err
+				return nil, err
 			}
 
 			//
-			nEra++
+			erased = append(erased, id)
 		}
 	}
+	return erased, nil
+}
 
-	lk.WarnOnErrWhen(nDel != nEra, "%v", fmt.Errorf("Deleted Count(%d) != Erased Count(%d)", nDel, nEra))
-	return nEra, nil
+func DelOneEventID(span string, id string) (bool, error) {
+	eIds, err := FetchEvtIDs([]byte(span))
+	if err != nil {
+		return false, err
+	}
+	tmpEvents := FilterMap(
+		eIds,
+		func(i int, s string) bool { return s != id },
+		func(i int, e string) TempEvt { return TempEvt{evtID: e} },
+	)
+	es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
+	if err := bh.UpsertPartObject(es, span); err != nil {
+		return false, err
+	}
+	return len(eIds) > len(tmpEvents), nil
+}
+
+func DelGlobalEventID(ids ...string) ([]string, error) {
+
+	spans, err := FetchSpans(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ids = Settify(ids...)
+	var deleted []string
+SPAN:
+	for _, span := range spans {
+		for _, id := range ids {
+			ok, err := DelOneEventID(span, id)
+			if err != nil {
+				return deleted, err
+			}
+			if ok {
+				deleted = append(deleted, id)
+				ids = FilterMap4SglTyp(ids, func(i int, e string) bool { return e != id }, nil)
+				if len(deleted) == len(ids) {
+					break SPAN
+				}
+				continue SPAN
+			}
+		}
+	}
+	return deleted, nil
 }

@@ -280,7 +280,7 @@ func TestEraseEvents(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	fmt.Println(EraseEvents(id, id1))
+	fmt.Println(EraseEvent(id, id1))
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
