@@ -178,76 +178,83 @@ func (evt *Event) markDeleted() error {
 }
 
 func FetchEvent(aliveOnly bool, id string) (*Event, error) {
-	evt, err := bh.GetOneObject[Event]([]byte(id))
+	event, err := bh.GetOneObject[Event]([]byte(id))
 	if err != nil {
 		return nil, err
 	}
 	if aliveOnly {
-		if evt != nil && !evt.Deleted {
-			return evt, err
+		if event != nil && !event.Deleted {
+			return event, err
 		}
 		return nil, err
 	}
-	return evt, err
+	return event, err
 }
 
-func FetchEvents(aliveOnly bool, ids ...string) (evts []*Event, err error) {
+func FetchEvents(aliveOnly bool, ids ...string) (events []*Event, err error) {
 	for _, id := range ids {
-		evt, err := FetchEvent(aliveOnly, id)
+		event, err := FetchEvent(aliveOnly, id)
 		if err != nil {
 			return nil, err
 		}
-		if evt != nil {
-			evts = append(evts, evt)
+		if event != nil {
+			events = append(events, event)
 		}
 	}
 	return
 }
 
 func PubEvent(id string, flag bool) error {
-	evt, err := FetchEvent(true, id)
+	event, err := FetchEvent(true, id)
 	if err != nil {
 		return err
 	}
-	if evt != nil {
-		return evt.Publish(flag)
+	if event != nil {
+		return event.Publish(flag)
 	}
 	return fmt.Errorf("couldn't find %s, publish nothing", id)
 }
 
+func EventHappened(id string) bool {
+	event, err := FetchEvent(true, id)
+	return err == nil && event != nil
+}
+
 func DelEvent(ids ...string) (int, error) {
-	cnt := 0
+	nDel := 0
 	for _, id := range ids {
-		evt, err := FetchEvent(true, id)
+		event, err := FetchEvent(true, id)
 		if err != nil {
 			return -1, err
 		}
-		if evt != nil {
-			evt.markDeleted()
-			cnt++
+		if event != nil {
+			if err := event.markDeleted(); err != nil {
+				return -1, err
+			}
+			nDel++
 		}
 	}
-	return cnt, nil
-}
-
-func EventHappened(id string) bool {
-	evt, err := FetchEvent(true, id)
-	return err == nil && evt != nil
+	return nDel, nil
 }
 
 func EraseEvents(ids ...string) (int, error) {
 	DbGrp.Lock()
 	defer DbGrp.Unlock()
 
-	cnt := 0
+	nDel, err := DelEvent(ids...)
+	if err != nil {
+		return -1, err
+	}
+
+	nEra := 0
 	for _, id := range ids {
 
 		// step 1: fetch event to get its tm
-		evt, err := FetchEvent(false, id)
+		event, err := FetchEvent(false, id)
 		if err != nil {
 			return -1, err
 		}
-		if evt == nil {
+		if event == nil {
 			continue
 		}
 
@@ -263,27 +270,29 @@ func EraseEvents(ids ...string) (int, error) {
 		if n == 1 {
 
 			// step 3: delete from span-ids
-			span := getSpanAt(evt.Tm)
+			span := getSpanAt(event.Tm)
 			eIds, err := FetchEvtIDs([]byte(span))
 			if err != nil {
 				return -1, err
 			}
-			tmpEvts := FilterMap(
+			tmpEvents := FilterMap(
 				eIds,
 				func(i int, s string) bool { return s != id },
 				func(i int, e string) TempEvt { return TempEvt{evtID: e} },
 			)
-			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvts}}
+			es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
 			if err := bh.UpsertPartObject(es, span); err != nil {
 				return -1, err
 			}
 
 			// step 4: delete from own
-			n, err := deleteOwn(evt.Owner, evt.Tm.Format("200601"), span, id)
+			n, err := deleteOwn(event.Owner, event.Tm.Format("200601"), span, id)
 			if err != nil {
 				return -1, err
 			}
-			lk.FailOnErrWhen(n != 1, "%v", "n must be 1 in deleting from Own")
+			if n != 1 {
+				return -1, fmt.Errorf("%v", "n must be 1 in deleting from Own")
+			}
 
 			// step 5: delete follow
 			if _, err = deleteEventFollow(id); err != nil {
@@ -296,8 +305,10 @@ func EraseEvents(ids ...string) (int, error) {
 			}
 
 			//
-			cnt++
+			nEra++
 		}
 	}
-	return cnt, nil
+
+	lk.WarnOnErrWhen(nDel != nEra, "%v", fmt.Errorf("Deleted Count(%d) != Erased Count(%d)", nDel, nEra))
+	return nEra, nil
 }
