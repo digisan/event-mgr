@@ -233,9 +233,21 @@ func DelEvent(ids ...string) ([]string, error) {
 			return nil, err
 		}
 		if event != nil {
+
+			// STEP 1: delete from span-ids
+			ok, err := DelOneEventID(getSpanAt(event.Tm), id)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("%v, @%v", "event-id in Span-EventID is not registered normally", id)
+			}
+
+			// STEP 2: mark deleted
 			if err := event.markDeleted(); err != nil {
 				return nil, err
 			}
+
 			deleted = append(deleted, id)
 		}
 	}
