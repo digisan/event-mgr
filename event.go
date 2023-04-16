@@ -225,7 +225,32 @@ func EventHappened(id string) bool {
 	return err == nil && event != nil
 }
 
+func delOneEventID(span string, id string) (bool, error) {
+	eIds, err := FetchEvtID([]byte(span))
+	if err != nil {
+		return false, err
+	}
+	tmpEvents := FilterMap(
+		eIds,
+		func(i int, s string) bool { return s != id },
+		func(i int, e string) TempEvt { return TempEvt{evtID: e} },
+	)
+	es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
+	if err := bh.UpsertPartObject(es, span); err != nil {
+		return false, err
+	}
+
+	// Update Current Cache
+	spanNow := NowSpan()
+	es.mSpanCache[spanNow] = FilterMap4SglTyp(es.mSpanCache[spanNow], func(i int, e TempEvt) bool { return e.evtID != id }, nil)
+
+	return len(eIds) > len(tmpEvents), nil
+}
+
 func DelEvent(ids ...string) ([]string, error) {
+	es.mtx.Lock()
+	defer es.mtx.Unlock()
+
 	var deleted []string
 	for _, id := range ids {
 		event, err := FetchEvent(false, id)
@@ -235,7 +260,7 @@ func DelEvent(ids ...string) ([]string, error) {
 		if event != nil {
 
 			// STEP 1: delete from span-ids
-			ok, err := DelOneEventID(CreateSpanAt(event.Tm), id)
+			ok, err := delOneEventID(CreateSpanAt(event.Tm), id)
 			if err != nil {
 				return nil, err
 			}
@@ -284,7 +309,7 @@ func EraseEvent(ids ...string) ([]string, error) {
 
 			// STEP 3: delete from span-ids
 			span := CreateSpanAt(event.Tm)
-			ok, err := DelOneEventID(span, id)
+			ok, err := delOneEventID(span, id)
 			if err != nil {
 				return nil, err
 			}
@@ -332,24 +357,9 @@ func EraseEvent(ids ...string) ([]string, error) {
 	return erased, nil
 }
 
-func DelOneEventID(span string, id string) (bool, error) {
-	eIds, err := FetchEvtID([]byte(span))
-	if err != nil {
-		return false, err
-	}
-	tmpEvents := FilterMap(
-		eIds,
-		func(i int, s string) bool { return s != id },
-		func(i int, e string) TempEvt { return TempEvt{evtID: e} },
-	)
-	es := &EventSpan{mSpanCache: map[string][]TempEvt{span: tmpEvents}}
-	if err := bh.UpsertPartObject(es, span); err != nil {
-		return false, err
-	}
-	return len(eIds) > len(tmpEvents), nil
-}
-
 func DelGlobalEventID(ids ...string) ([]string, error) {
+	es.mtx.Lock()
+	defer es.mtx.Unlock()
 
 	spans, err := FetchSpan(nil)
 	if err != nil {
@@ -361,7 +371,7 @@ func DelGlobalEventID(ids ...string) ([]string, error) {
 SPAN:
 	for _, span := range spans {
 		for _, id := range ids {
-			ok, err := DelOneEventID(span, id)
+			ok, err := delOneEventID(span, id)
 			if err != nil {
 				return deleted, err
 			}

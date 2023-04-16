@@ -22,7 +22,7 @@ func main() {
 	//
 	em.InitEventSpan("TWO_MINUTE", ctx)
 
-	// fmt.Println(es.CurIDs())
+	// fmt.Println(es.CurrentID())
 
 	// {
 	// 	spans, err := em.FetchSpan(nil)

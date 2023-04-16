@@ -34,7 +34,7 @@ type TempEvt struct {
 // key: span; value: TempEvts
 type EventSpan struct {
 	mtx        *sync.Mutex
-	mSpanCache map[string][]TempEvt // key: "27582250-1"
+	mSpanCache map[string][]TempEvt // key: "27582250-01"
 }
 
 func (es *EventSpan) BadgerDB() *badger.DB {
@@ -218,7 +218,7 @@ func flush(span string) error {
 	return nil
 }
 
-func CurIDs() []string {
+func CurrentID() []string {
 	cache := es.mSpanCache[NowSpan()]
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })
 }
@@ -232,7 +232,7 @@ func FetchSpan(prefix []byte) (spans []string, err error) {
 	return spans, nil
 }
 
-// prefix: span id, e.g. 27632141-1
+// prefix: span id, e.g. 27632141-01
 func FetchEvtID(prefix []byte) (ids []string, err error) {
 	mES, err := bh.GetMap[EventSpan](prefix, nil)
 	if err != nil {
@@ -243,7 +243,7 @@ func FetchEvtID(prefix []byte) (ids []string, err error) {
 	for _, span := range spans {
 		idsDB = append(idsDB, mES[span].([]string)...)
 	}
-	return append(Reverse(CurIDs()), idsDB...), nil
+	return append(Reverse(CurrentID()), idsDB...), nil
 }
 
 // past: such as "2h20m", "30m", "2s"
@@ -257,9 +257,9 @@ func FetchEvtIDByTm(past string) (ids []string, err error) {
 		tsGrp = append(tsGrp, fmt.Sprint(i))
 	}
 
-	ids = Reverse(CurIDs())
+	ids = Reverse(CurrentID())
 	for _, ts := range tsGrp {
-		idBatch, err := FetchEvtID([]byte(ts))
+		idBatch, err := FetchEvtID([]byte(ts)) // return contains id in cache !!!
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
@@ -267,8 +267,7 @@ func FetchEvtIDByTm(past string) (ids []string, err error) {
 		if len(idBatch) == 0 {
 			continue
 		}
-		ids = append(ids, idBatch...)
-		ids = Settify(ids...)
+		ids = Settify(append(ids, idBatch...)...)
 	}
 	return
 }
