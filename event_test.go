@@ -69,11 +69,11 @@ func TestAddEvent(t *testing.T) {
 	}()
 
 	time.Sleep(60 * time.Second)
-	ticker.Stop()
-	fmt.Println("Ticker stopped")
+	done <- true
 	time.Sleep(1 * time.Second)
 
-	done <- true
+	ticker.Stop()
+	fmt.Println("Ticker stopped")
 	time.Sleep(2 * time.Second) // some time for flushing...
 
 	fmt.Println("------> total:", n)
@@ -134,7 +134,7 @@ func TestFetchSpans(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	spans, err := FetchSpans([]byte("")) // 'nil' is for fetching all
+	spans, err := FetchSpan([]byte("")) // 'nil' is for fetching all
 	if err != nil {
 		panic(err)
 	}
@@ -153,7 +153,7 @@ func TestFetchEvtIds(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDs([]byte("")) // 'nil' is for fetching all
+	ids, err := FetchEvtID([]byte("")) // 'nil' is for fetching all
 	if err != nil {
 		panic(err)
 	}
@@ -180,7 +180,7 @@ func TestFetchEventIDsByTime(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByTm("80m")
+	ids, err := FetchEvtIDByTm("80m")
 	if err != nil {
 		panic(err)
 	}
@@ -200,7 +200,7 @@ func TestFetchEventIDsByCnt(t *testing.T) {
 
 	InitEventSpan("MINUTE", ctx)
 
-	ids, err := FetchEvtIDsByCnt(400, "45m") // 'a week' period default
+	ids, err := FetchEvtIDByCnt(400, "45m") // 'a week' period default
 	if err != nil {
 		panic(err)
 	}

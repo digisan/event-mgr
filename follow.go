@@ -70,7 +70,7 @@ func (ef *EventFollow) Unmarshal(dbKey, dbVal []byte) (any, error) {
 }
 
 func (ef *EventFollow) BadgerDB() *badger.DB {
-	return DbGrp.IDFlwIDs
+	return DbGrp.IDFlwID
 }
 
 /////////////////////////////////////////////////////////////////////////////

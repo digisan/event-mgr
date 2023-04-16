@@ -235,7 +235,7 @@ func DelEvent(ids ...string) ([]string, error) {
 		if event != nil {
 
 			// STEP 1: delete from span-ids
-			ok, err := DelOneEventID(getSpanAt(event.Tm), id)
+			ok, err := DelOneEventID(CreateSpanAt(event.Tm), id)
 			if err != nil {
 				return nil, err
 			}
@@ -283,7 +283,7 @@ func EraseEvent(ids ...string) ([]string, error) {
 		if n == 1 {
 
 			// STEP 3: delete from span-ids
-			span := getSpanAt(event.Tm)
+			span := CreateSpanAt(event.Tm)
 			ok, err := DelOneEventID(span, id)
 			if err != nil {
 				return nil, err
@@ -333,7 +333,7 @@ func EraseEvent(ids ...string) ([]string, error) {
 }
 
 func DelOneEventID(span string, id string) (bool, error) {
-	eIds, err := FetchEvtIDs([]byte(span))
+	eIds, err := FetchEvtID([]byte(span))
 	if err != nil {
 		return false, err
 	}
@@ -351,7 +351,7 @@ func DelOneEventID(span string, id string) (bool, error) {
 
 func DelGlobalEventID(ids ...string) ([]string, error) {
 
-	spans, err := FetchSpans(nil)
+	spans, err := FetchSpan(nil)
 	if err != nil {
 		return nil, err
 	}

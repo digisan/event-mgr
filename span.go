@@ -38,7 +38,7 @@ type EventSpan struct {
 }
 
 func (es *EventSpan) BadgerDB() *badger.DB {
-	return DbGrp.SpanIDs
+	return DbGrp.SpanID
 }
 
 func (es *EventSpan) Key() []byte {
@@ -73,9 +73,6 @@ func (es *EventSpan) Unmarshal(dbKey []byte, dbVal []byte) (any, error) {
 }
 
 var mSpanType = map[string]int64{
-	"DAY":          1440,
-	"HALF_DAY":     720,
-	"TWO_HOUR":     120,
 	"HOUR":         60,
 	"HALF_HOUR":    30,
 	"QUARTER_HOUR": 15,
@@ -93,38 +90,35 @@ func SetSpanType(spanType string) error {
 	return nil
 }
 
-func getSpanAt(tm time.Time) string {
-	tsMin := tm.Unix() / 60
+func CreateSpanAt(tm time.Time) string {
+	tsMinute := tm.Unix() / 60
 	sm, ok := mSpanType[curSpanType]
 	lk.FailOnErrWhen(!ok, "%v", fmt.Errorf("error at '%s'", curSpanType))
-	start := tsMin / sm * sm
-	return fmt.Sprintf("%d-%d", start, sm)
+	return fmt.Sprintf("%d-%02d", tsMinute, sm) // all type of spans start with 1-MINUTE timestamp
 }
 
 // tm: such as "2h20m", "30m", "2s"
-func getSpan(tm string, past bool) string {
+func CreateSpan(tm string, past bool) string {
 	if len(tm) == 0 {
 		tm = "0s"
 	}
 	duration, err := time.ParseDuration(tm)
 	lk.FailOnErr("%v", err)
-
 	duration = IF(past, -duration, duration)
-
 	then := time.Now().Add(duration) // past is minus duration
-	return getSpanAt(then)
+	return CreateSpanAt(then)
 }
 
 func NowSpan() string {
-	return getSpan("", false)
+	return CreateSpan("", false)
 }
 
 func PastSpan(tm string) string {
-	return getSpan(tm, true)
+	return CreateSpan(tm, true)
 }
 
 func FutureSpan(tm string) string {
-	return getSpan(tm, false)
+	return CreateSpan(tm, false)
 }
 
 func InitEventSpan(spanType string, ctx context.Context) {
@@ -187,6 +181,7 @@ func AddEvent(evt *Event) error {
 	// register event-ids into span, (we only register original events into span db)
 	if len(evt.Followee) == 0 {
 		dbKey := NowSpan()
+		// lk.Log("Span: %v", dbKey)
 		es.mSpanCache[dbKey] = append(es.mSpanCache[dbKey], TempEvt{
 			owner:  evt.Owner,
 			yyyymm: evt.Tm.Format("200601"),
@@ -220,7 +215,6 @@ func flush(span string) error {
 	}
 
 	delete(es.mSpanCache, span)
-
 	return nil
 }
 
@@ -229,7 +223,7 @@ func CurIDs() []string {
 	return FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })
 }
 
-func FetchSpans(prefix []byte) (spans []string, err error) {
+func FetchSpan(prefix []byte) (spans []string, err error) {
 	mES, err := bh.GetMap[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
@@ -239,7 +233,7 @@ func FetchSpans(prefix []byte) (spans []string, err error) {
 }
 
 // prefix: span id, e.g. 27632141-1
-func FetchEvtIDs(prefix []byte) (ids []string, err error) {
+func FetchEvtID(prefix []byte) (ids []string, err error) {
 	mES, err := bh.GetMap[EventSpan](prefix, nil)
 	if err != nil {
 		return nil, err
@@ -253,7 +247,7 @@ func FetchEvtIDs(prefix []byte) (ids []string, err error) {
 }
 
 // past: such as "2h20m", "30m", "2s"
-func FetchEvtIDsByTm(past string) (ids []string, err error) {
+func FetchEvtIDByTm(past string) (ids []string, err error) {
 
 	psNum := strs.SplitPartTo[int](PastSpan(past), "-", 0)
 	nsNum := strs.SplitPartTo[int](NowSpan(), "-", 0)
@@ -265,7 +259,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
 	ids = Reverse(CurIDs())
 	for _, ts := range tsGrp {
-		idBatch, err := FetchEvtIDs([]byte(ts))
+		idBatch, err := FetchEvtID([]byte(ts))
 		if err != nil {
 			lk.WarnOnErr("%v", err)
 			return nil, err
@@ -281,7 +275,7 @@ func FetchEvtIDsByTm(past string) (ids []string, err error) {
 
 // [period] is like []"10h", "500m", "10s"] etc.
 // if events count is less than [n], return all events
-func FetchEvtIDsByCnt(n int, periods ...string) (ids []string, err error) {
+func FetchEvtIDByCnt(n int, periods ...string) (ids []string, err error) {
 	if len(periods) == 0 {
 		periods = []string{"10m", "30m", "2h", "6h", "12h", "24h"}
 	}
@@ -289,7 +283,7 @@ func FetchEvtIDsByCnt(n int, periods ...string) (ids []string, err error) {
 		if !rtm.MatchString(period) {
 			return nil, errors.New("periods must be like '1h', '50m', '20s'")
 		}
-		ids, err = FetchEvtIDsByTm(period)
+		ids, err = FetchEvtIDByTm(period)
 		if err != nil {
 			return nil, err
 		}

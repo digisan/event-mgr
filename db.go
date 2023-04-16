@@ -10,12 +10,12 @@ import (
 
 type DBGrp struct {
 	sync.Mutex
-	SpanIDs     *badger.DB // span     : event ids
-	IDEvt       *badger.DB // event id : event content
-	MyIDs       *badger.DB // uname    : self own event ids
-	BookmarkIDs *badger.DB // uname    : bookmarked event ids
-	IDFlwIDs    *badger.DB // event id : follower event ids
-	IDPtps      *badger.DB // event id : uname participants
+	SpanID     *badger.DB // span     : event ids
+	IDEvt      *badger.DB // event id : event content
+	MyID       *badger.DB // uname    : self own event ids
+	BookmarkID *badger.DB // uname    : bookmarked event ids
+	IDFlwID    *badger.DB // event id : follower event ids
+	IDPtps     *badger.DB // event id : uname participants
 }
 
 var (
@@ -39,12 +39,12 @@ func InitDB(dir string) *DBGrp {
 	if DbGrp == nil {
 		onceDB.Do(func() {
 			DbGrp = &DBGrp{
-				SpanIDs:     open(filepath.Join(dir, "span-ids")),
-				IDEvt:       open(filepath.Join(dir, "id-event")),
-				MyIDs:       open(filepath.Join(dir, "my-ids")),
-				BookmarkIDs: open(filepath.Join(dir, "bookmark-ids")),
-				IDFlwIDs:    open(filepath.Join(dir, "id-flwids")),
-				IDPtps:      open(filepath.Join(dir, "id-ptps")),
+				SpanID:     open(filepath.Join(dir, "span-ids")),
+				IDEvt:      open(filepath.Join(dir, "id-event")),
+				MyID:       open(filepath.Join(dir, "my-ids")),
+				BookmarkID: open(filepath.Join(dir, "bookmark-ids")),
+				IDFlwID:    open(filepath.Join(dir, "id-flwids")),
+				IDPtps:     open(filepath.Join(dir, "id-ptps")),
 			}
 		})
 	}
@@ -55,25 +55,25 @@ func CloseDB() {
 	DbGrp.Lock()
 	defer DbGrp.Unlock()
 
-	if DbGrp.SpanIDs != nil {
-		lk.FailOnErr("%v", DbGrp.SpanIDs.Close())
-		DbGrp.SpanIDs = nil
+	if DbGrp.SpanID != nil {
+		lk.FailOnErr("%v", DbGrp.SpanID.Close())
+		DbGrp.SpanID = nil
 	}
 	if DbGrp.IDEvt != nil {
 		lk.FailOnErr("%v", DbGrp.IDEvt.Close())
 		DbGrp.IDEvt = nil
 	}
-	if DbGrp.MyIDs != nil {
-		lk.FailOnErr("%v", DbGrp.MyIDs.Close())
-		DbGrp.MyIDs = nil
+	if DbGrp.MyID != nil {
+		lk.FailOnErr("%v", DbGrp.MyID.Close())
+		DbGrp.MyID = nil
 	}
-	if DbGrp.BookmarkIDs != nil {
-		lk.FailOnErr("%v", DbGrp.BookmarkIDs.Close())
-		DbGrp.BookmarkIDs = nil
+	if DbGrp.BookmarkID != nil {
+		lk.FailOnErr("%v", DbGrp.BookmarkID.Close())
+		DbGrp.BookmarkID = nil
 	}
-	if DbGrp.IDFlwIDs != nil {
-		lk.FailOnErr("%v", DbGrp.IDFlwIDs.Close())
-		DbGrp.IDFlwIDs = nil
+	if DbGrp.IDFlwID != nil {
+		lk.FailOnErr("%v", DbGrp.IDFlwID.Close())
+		DbGrp.IDFlwID = nil
 	}
 	if DbGrp.IDPtps != nil {
 		lk.FailOnErr("%v", DbGrp.IDPtps.Close())

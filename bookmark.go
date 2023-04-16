@@ -50,7 +50,7 @@ func (bm Bookmark) String() string {
 }
 
 func (bm *Bookmark) BadgerDB() *badger.DB {
-	return DbGrp.BookmarkIDs
+	return DbGrp.BookmarkID
 }
 
 func (bm *Bookmark) Key() []byte {
