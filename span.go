@@ -50,7 +50,7 @@ func (es *EventSpan) Marshal(at any) (forKey, forValue []byte) {
 	span := at.(string)
 	forKey = []byte(span)
 	cache := es.mSpanCache[span]
-	ids := FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })
+	ids := Settify(FilterMap(cache, nil, func(i int, e TempEvt) string { return e.evtID })...)
 	forValue = []byte(strings.Join(ids, SEP))
 	return
 }
@@ -243,7 +243,7 @@ func FetchEvtID(prefix []byte) (ids []string, err error) {
 	for _, span := range spans {
 		idsDB = append(idsDB, mES[span].([]string)...)
 	}
-	return append(Reverse(CurrentID()), idsDB...), nil
+	return Settify(append(Reverse(CurrentID()), idsDB...)...), nil
 }
 
 // past: such as "2h20m", "30m", "2s"
