@@ -167,7 +167,7 @@ func (es EventSpan) String() string {
 	return sb.String()
 }
 
-// store real event, but excludes follower events
+// store every event, BUT follower events are excluded from span-db
 func AddEvent(evt *Event) error {
 	es.mtx.Lock()
 	defer es.mtx.Unlock()
@@ -178,7 +178,7 @@ func AddEvent(evt *Event) error {
 	}
 	// lk.Log("%v", evt)
 
-	// register event-ids into span, (we only register original events into span db)
+	// register event-ids into span, (WE ONLY REGISTER ORIGINAL EVENTS INTO SPAN-DB)
 	if len(evt.Followee) == 0 {
 		dbKey := NowSpan()
 		// lk.Log("Span: %v", dbKey)
