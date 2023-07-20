@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 	bh "github.com/digisan/db-helper/badger"
 	. "github.com/digisan/go-generics/v2"
 	"github.com/digisan/gotk/strs"
