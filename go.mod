@@ -3,8 +3,8 @@ module github.com/digisan/event-mgr
 go 1.20
 
 require (
-	github.com/dgraph-io/badger/v4 v4.1.0
-	github.com/digisan/db-helper v0.0.31
+	github.com/dgraph-io/badger/v4 v4.2.0
+	github.com/digisan/db-helper v0.0.32
 	github.com/digisan/go-generics v0.3.6
 	github.com/digisan/gotk v0.3.9
 	github.com/digisan/logkit v0.2.6
@@ -27,7 +27,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/net v0.12.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )
