@@ -12,7 +12,7 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 	bh "github.com/digisan/db-helper/badger"
-	. "github.com/digisan/go-generics/v2"
+	. "github.com/digisan/go-generics"
 	"github.com/digisan/gotk/strs"
 	"github.com/digisan/gotk/track"
 	lk "github.com/digisan/logkit"
